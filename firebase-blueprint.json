@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user information and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "mobilityFirst": { "type": "boolean", "description": "Preference for accessible routes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "QueueToken": {
+      "title": "Queue Token",
+      "description": "Represents a user's place in a virtual queue.",
+      "type": "object",
+      "properties": {
+        "tokenId": { "type": "string" },
+        "userId": { "type": "string" },
+        "venueId": { "type": "string" },
+        "serviceType": { "type": "string", "enum": ["concession", "restroom", "entry", "exit"] },
+        "status": { "type": "string", "enum": ["waiting", "called", "completed", "cancelled"] },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "estimatedWaitTime": { "type": "number", "description": "Minutes" }
+      },
+      "required": ["userId", "venueId", "serviceType", "status", "joinedAt"]
+    },
+    "Venue": {
+      "title": "Venue Data",
+      "description": "Metadata about the sporting venue and real-time congestion.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "congestionLevel": { "type": "number", "description": "0.0 to 1.0" },
+        "gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "location": { "type": "object", "properties": { "lat": { "type": "number" }, "lng": { "type": "number" } } },
+              "isAccessible": { "type": "boolean" },
+              "currentWaitTime": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A message in the AI concierge conversation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/queues/{tokenId}": {
+      "schema": "QueueToken",
+      "description": "Global queue tokens."
+    },
+    "/venues/{venueId}": {
+      "schema": "Venue",
+      "description": "Venue information and gate status."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat history for AI concierge."
+    }
+  }
+}

@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'Consolas', 'Monaco', monospace;
+  --color-brand: #4285F4;
+  --color-brand-dark: #3367D6;
+  --color-bg: #F8F9FA;
+  --color-surface: #FFFFFF;
+  --color-text-main: #202124;
+  --color-text-sub: #5F6368;
+  --color-border: #DADCE0;
+  --color-accent-green: #34A853;
+  --color-accent-amber: #FBBC04;
+}
+
+body {
+  @apply bg-bg text-text-main font-sans antialiased;
+}
+
+.card {
+  @apply bg-surface p-6 rounded-xl border border-border transition-all duration-200;
+}
+
+.card:hover {
+  @apply shadow-sm;
+}
+
+.col-title {
+  @apply text-[11px] uppercase tracking-[0.1em] text-text-sub mb-5 font-bold flex items-center gap-2;
+}
+
+.tag {
+  @apply text-[11px] bg-bg px-2 py-1 rounded border border-border;
+}

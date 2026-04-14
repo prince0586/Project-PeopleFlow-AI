@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, email, displayName, mobilityFirst, createdAt
+    //
+    // Collection: queues
+    // Fields: tokenId, userId, venueId, serviceType, status, joinedAt, estimatedWaitTime
+    //
+    // Collection: venues
+    // Fields: id, name, congestionLevel, gates[]
+    //
+    // Collection: chats/{chatId}/messages
+    // Fields: userId, role, content, timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.email.size() < 100;
+    }
+
+    function isValidQueueToken(data) {
+      return data.keys().hasAll(['userId', 'venueId', 'serviceType', 'status', 'joinedAt']) &&
+             data.userId == request.auth.uid &&
+             data.status in ['waiting', 'cancelled'] &&
+             data.serviceType in ['concession', 'restroom', 'entry', 'exit'];
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['userId', 'role', 'content', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.role in ['user', 'model'] &&
+             data.content is string &&
+             data.content.size() < 5000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /queues/{tokenId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isAuthenticated() && isValidQueueToken(request.resource.data);
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId) && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+                    request.resource.data.status == 'cancelled';
+      allow delete: if false; // Prefer status 'cancelled'
+    }
+
+    match /venues/{venueId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /chats/{chatId}/messages/{messageId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId);
+      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data);
+    }
+
+    // Admin Helper
+    function isAdmin() {
+      return isAuthenticated() && 
+             (request.auth.token.email == "princeradadia@gmail.com" && request.auth.token.email_verified == true);
+    }
+  }
+}
