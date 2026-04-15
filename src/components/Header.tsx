@@ -11,7 +11,7 @@ export const Header = React.memo(({ user }: HeaderProps) => (
   <header className="bg-surface border-bottom border-border px-10 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm" role="banner">
     <div className="flex items-center gap-3">
       <div className="w-8 h-8 bg-brand rounded-md flex items-center justify-center text-white font-bold text-lg" aria-hidden="true">F</div>
-      <h1 className="text-lg font-semibold tracking-tight">
+      <h1 className="text-lg font-semibold tracking-tight text-text-main">
         FANFLOW AI <span className="font-normal text-text-sub ml-2 hidden sm:inline">Enterprise Venue System</span>
       </h1>
     </div>

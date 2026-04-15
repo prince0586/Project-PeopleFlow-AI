@@ -68,7 +68,7 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
               <div className="w-8 h-8 rounded-lg bg-bg flex items-center justify-center text-text-sub group-hover:text-brand transition-colors">
                 <Users size={16} aria-hidden="true" />
               </div>
-              <span className="capitalize font-bold text-sm">{type}</span>
+              <span className="capitalize font-bold text-sm text-text-main">{type}</span>
             </div>
             <ChevronRight size={16} className="text-border group-hover:text-brand transition-all" aria-hidden="true" />
           </button>

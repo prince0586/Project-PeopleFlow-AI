@@ -65,7 +65,7 @@ export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
               <Bot size={24} className="text-brand" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <p className="font-bold text-sm">How can I help you today?</p>
+              <p className="font-bold text-sm text-text-main">How can I help you today?</p>
               <p className="text-text-sub text-[11px] max-w-[180px] mx-auto">Ask about facilities, routing, or your current queue status.</p>
             </div>
           </div>

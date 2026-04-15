@@ -6,10 +6,41 @@ import dotenv from 'dotenv';
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import admin from 'firebase-admin';
 import fs from 'fs';
+import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import { VenueService } from './server/services/venueService';
 import { AnalyticsService } from './server/services/analyticsService';
 
 dotenv.config();
+
+// --- Validation Schemas ---
+const RouteSchema = z.object({
+  userLocation: z.object({
+    lat: z.number(),
+    lng: z.number()
+  }).optional(),
+  mobilityFirst: z.boolean().optional(),
+  venueId: z.string().optional()
+});
+
+const ChatSchema = z.object({
+  message: z.string().min(1).max(1000),
+  context: z.record(z.string(), z.any()).optional(),
+  userId: z.string().optional()
+});
+
+// --- Rate Limiters ---
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: { error: 'Too many requests, please try again later.' }
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // Limit each IP to 20 AI requests per hour
+  message: { error: 'AI limit reached. Please wait an hour.' }
+});
 
 // --- Firebase Admin Initialization ---
 const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -52,6 +83,7 @@ export async function createServer() {
   const app = express();
   app.use(cors());
   app.use(express.json());
+  app.use('/api/', apiLimiter);
 
   // --- API Routes ---
 
@@ -60,7 +92,10 @@ export async function createServer() {
    * @desc Optimized crowd routing using VenueService and Analytics logging.
    */
   app.post('/api/route', async (req, res) => {
-    const { userLocation, mobilityFirst, venueId = 'stadium_01' } = req.body;
+    const validation = RouteSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: validation.error });
+
+    const { userLocation, mobilityFirst, venueId = 'stadium_01' } = validation.data;
     
     try {
       const scoredGates = await VenueService.calculateBestRoute(
@@ -126,11 +161,14 @@ export async function createServer() {
    * @route POST /api/chat
    * @desc AI Venue Concierge with Function Calling and Advanced Grounding.
    */
-  app.post('/api/chat', async (req, res) => {
-    const { message, context, userId } = req.body;
+  app.post('/api/chat', aiLimiter, async (req, res) => {
+    const validation = ChatSchema.safeParse(req.body);
+    if (!validation.success) return res.status(400).json({ error: validation.error });
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY not configured." });
+    const { message, context, userId } = validation.data;
+
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "MY_GEMINI_API_KEY") {
+      return res.status(500).json({ error: "GEMINI_API_KEY not configured. Please add your API key in the AI Studio Secrets panel." });
     }
 
     try {

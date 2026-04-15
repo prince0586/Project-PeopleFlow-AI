@@ -103,7 +103,7 @@ export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
         <div className="absolute top-4 left-4 flex flex-col gap-2">
           <div className="bg-white p-2 rounded shadow-md border border-border">
             <div className="text-[10px] font-bold text-brand mb-1">CURRENT LOCATION</div>
-            <div className="text-xs font-bold">Section 104, Row B</div>
+            <div className="text-xs font-bold text-text-main">Section 104, Row B</div>
           </div>
         </div>
       </div>

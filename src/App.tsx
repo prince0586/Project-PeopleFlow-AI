@@ -24,7 +24,7 @@ export default function App() {
 
   // Memoize theme classes for performance
   const themeClasses = useMemo(() => 
-    `min-h-screen flex flex-col transition-colors duration-300 ${isHighContrast ? 'bg-black text-white' : 'bg-bg text-text'}`
+    `min-h-screen flex flex-col transition-colors duration-300 ${isHighContrast ? 'bg-black text-white' : 'bg-bg text-text-main'}`
   , [isHighContrast]);
 
   return (
@@ -57,10 +57,10 @@ export default function App() {
       <footer className="bg-surface border-t border-border px-10 py-4 flex flex-wrap items-center gap-x-8 gap-y-2 text-[11px] text-text-sub" role="contentinfo">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
-          System Status: <span className="text-text font-bold">Operational</span>
+          System Status: <span className="text-text-main font-bold">Operational</span>
         </div>
         <div className="flex items-center gap-2">
-          Latency: <span className="text-text font-bold">&lt;150ms</span>
+          Latency: <span className="text-text-main font-bold">&lt;150ms</span>
         </div>
         <div className="flex items-center gap-2">
           Analytics Tier: <span className="text-brand font-bold">Google Cloud Enterprise</span>

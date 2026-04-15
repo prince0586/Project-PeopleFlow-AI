@@ -91,7 +91,7 @@ export const AnalyticsDashboard = React.memo(() => {
 
       <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
         <div className="text-[9px] text-text-sub font-medium">
-          Total Throughput: <span className="text-text font-bold tabular-nums">{report?.totalThroughput.toLocaleString()}</span>
+          Total Throughput: <span className="text-text-main font-bold tabular-nums">{report?.totalThroughput.toLocaleString()}</span>
         </div>
         <div className="text-[9px] text-text-sub font-mono italic">
           Tier: Enterprise Analytics
