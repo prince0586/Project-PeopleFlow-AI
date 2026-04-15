@@ -11,7 +11,7 @@ export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
       <div className="flex items-center justify-between">
         <div id="map-title" className="col-title flex items-center gap-2 font-bold text-sm text-text-sub uppercase tracking-wider">
           <MapIcon size={14} aria-hidden="true" />
-          Venue Live Map {activeRoute && <span className="text-brand flex items-center gap-1 ml-2"><Navigation size={10} /> Route Active</span>}
+          Venue Live Map {activeRoute && <span className="text-brand flex items-center gap-1 ml-2" aria-label="Route is active"><Navigation size={10} aria-hidden="true" /> Route Active</span>}
         </div>
         <div className="flex gap-2">
           <button className="p-1.5 hover:bg-bg rounded border border-border text-text-sub" aria-label="Toggle Layers"><Layers size={14} /></button>

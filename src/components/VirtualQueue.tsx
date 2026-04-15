@@ -27,7 +27,10 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
   }, [user]);
 
   const joinQueue = useCallback(async (type: string) => {
-    if (!user) return signIn();
+    if (!user) {
+      signIn();
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/queue/estimate?serviceType=${type}&queueLength=${Math.floor(Math.random() * 20)}`);
@@ -75,7 +78,7 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
         ))}
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+      <div className="flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar" aria-live="polite">
         <AnimatePresence mode="popLayout">
           {tokens.length === 0 && !loading && (
             <div className="text-center py-10 text-text-sub text-sm italic">

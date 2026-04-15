@@ -58,6 +58,7 @@ export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
         ref={scrollRef}
         className="flex-1 bg-bg rounded-xl border border-border p-4 overflow-y-auto space-y-4 custom-scrollbar"
         aria-live="polite"
+        aria-busy={loading}
       >
         {messages.length === 0 && (
           <div className="text-center space-y-4 mt-10 animate-in fade-in zoom-in duration-700">

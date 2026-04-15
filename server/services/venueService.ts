@@ -1,5 +1,5 @@
 import NodeCache from 'node-cache';
-import admin from 'firebase-admin';
+import { getFirestoreDB } from '../db';
 import { Gate, VenueData } from '../../src/types';
 
 // Cache venue data for 60 seconds to reduce Firestore reads and improve performance
@@ -9,9 +9,17 @@ const venueCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
  * Venue Service
  * Handles venue metadata, gate status, and congestion routing.
  */
+/**
+ * VenueService
+ * 
+ * Handles venue metadata, gate status, and congestion-aware routing logic.
+ * Utilizes in-memory caching to minimize database latency.
+ */
 export class VenueService {
   /**
    * Fetches venue data with in-memory caching.
+   * @param venueId - The unique ID of the venue.
+   * @returns The venue metadata and gate status.
    */
   static async getVenueData(venueId: string): Promise<VenueData> {
     const cachedData = venueCache.get<VenueData>(venueId);
@@ -31,7 +39,7 @@ export class VenueService {
       ]
     };
 
-    const db = admin.apps.length ? admin.firestore() : null;
+    const db = getFirestoreDB();
     if (db) {
       try {
         const doc = await db.collection('venues').doc(venueId).get();
@@ -49,10 +57,15 @@ export class VenueService {
   }
 
   /**
-   * Optimized routing algorithm.
-   * O(N log N) complexity.
+   * Optimized routing algorithm to find the best entry/exit gate.
+   * Uses a weighted scoring system: Distance (70%) + Congestion (30%).
+   * 
+   * @param userLocation - The current lat/lng of the user.
+   * @param mobilityFirst - Whether to prioritize accessible gates.
+   * @param venueId - The ID of the venue.
+   * @returns A sorted list of gates with calculated scores.
    */
-  static async calculateBestRoute(userLocation: { lat: number, lng: number }, mobilityFirst: boolean, venueId: string) {
+  static async calculateBestRoute(userLocation: { lat: number, lng: number }, mobilityFirst: boolean, venueId: string): Promise<Gate[]> {
     const venue = await this.getVenueData(venueId);
     const availableGates = mobilityFirst ? venue.gates.filter(g => g.isAccessible) : venue.gates;
 

@@ -37,21 +37,24 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'email']) &&
+      return data.keys().hasOnly(['uid', 'email', 'displayName', 'mobilityFirst', 'createdAt']) &&
+             data.keys().hasAll(['uid', 'email']) &&
              data.uid == request.auth.uid &&
              data.email is string &&
              data.email.size() < 100;
     }
 
     function isValidQueueToken(data) {
-      return data.keys().hasAll(['userId', 'venueId', 'serviceType', 'status', 'joinedAt']) &&
+      return data.keys().hasOnly(['userId', 'venueId', 'serviceType', 'status', 'joinedAt', 'estimatedWaitTime']) &&
+             data.keys().hasAll(['userId', 'venueId', 'serviceType', 'status', 'joinedAt']) &&
              data.userId == request.auth.uid &&
              data.status in ['waiting', 'cancelled'] &&
              data.serviceType in ['concession', 'restroom', 'entry', 'exit'];
     }
 
     function isValidChatMessage(data) {
-      return data.keys().hasAll(['userId', 'role', 'content', 'timestamp']) &&
+      return data.keys().hasOnly(['userId', 'role', 'content', 'timestamp']) &&
+             data.keys().hasAll(['userId', 'role', 'content', 'timestamp']) &&
              data.userId == request.auth.uid &&
              data.role in ['user', 'model'] &&
              data.content is string &&

@@ -3,17 +3,20 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import admin from 'firebase-admin';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { VenueService } from './server/services/venueService';
 import { AnalyticsService } from './server/services/analyticsService';
+import { AIService } from './server/services/aiService';
+import './server/db'; // Ensure DB is initialized
 
 dotenv.config();
 
-// --- Validation Schemas ---
+/**
+ * Validation Schemas for API requests.
+ */
 const RouteSchema = z.object({
   userLocation: z.object({
     lat: z.number(),
@@ -29,61 +32,43 @@ const ChatSchema = z.object({
   userId: z.string().optional()
 });
 
-// --- Rate Limiters ---
+/**
+ * Rate Limiters to prevent abuse.
+ */
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  message: { error: 'Too many requests, please try again later.' }
+  max: 1000, // Increased limit to prevent "Failed to fetch" due to throttling
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // Limit each IP to 20 AI requests per hour
+  max: 20,
   message: { error: 'AI limit reached. Please wait an hour.' }
 });
 
-// --- Firebase Admin Initialization ---
-const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
-if (fs.existsSync(firebaseConfigPath)) {
-  const config = JSON.parse(fs.readFileSync(firebaseConfigPath, 'utf8'));
-  admin.initializeApp({
-    projectId: config.projectId,
-  });
+// Initialize AI Service
+if (process.env.GEMINI_API_KEY) {
+  AIService.init(process.env.GEMINI_API_KEY);
 }
 
-const db = admin.apps.length ? admin.firestore() : null;
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-// --- AI Tool Declarations ---
-const getQueueStatus = {
-  name: "getQueueStatus",
-  description: "Get the current status and estimated wait time for the user's active queue tokens.",
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      userId: { type: SchemaType.STRING, description: "The unique ID of the user." }
-    },
-    required: ["userId"]
-  }
-};
-
-const getVenueCongestion = {
-  name: "getVenueCongestion",
-  description: "Get the current congestion level and gate status for the venue.",
-  parameters: {
-    type: SchemaType.OBJECT,
-    properties: {
-      venueId: { type: SchemaType.STRING, description: "The unique ID of the venue." }
-    },
-    required: ["venueId"]
-  }
-};
-
+/**
+ * Creates and configures the Express application.
+ */
 export async function createServer() {
   const app = express();
+  
+  // Trust proxy is required for express-rate-limit to work correctly behind Cloud Run/Nginx
+  app.set('trust proxy', 1);
+
   app.use(cors());
   app.use(express.json());
-  app.use('/api/', apiLimiter);
+  app.use('/api', apiLimiter); // Removed trailing slash for better matching
+
+  // Health check endpoint
+  app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
   // --- API Routes ---
 
@@ -93,7 +78,9 @@ export async function createServer() {
    */
   app.post('/api/route', async (req, res) => {
     const validation = RouteSchema.safeParse(req.body);
-    if (!validation.success) return res.status(400).json({ error: validation.error });
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Invalid request data', details: validation.error });
+    }
 
     const { userLocation, mobilityFirst, venueId = 'stadium_01' } = validation.data;
     
@@ -118,6 +105,7 @@ export async function createServer() {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
+      console.error('Routing Error:', error);
       res.status(500).json({ error: 'Routing calculation failed' });
     }
   });
@@ -137,14 +125,19 @@ export async function createServer() {
     const length = parseInt(queueLength as string) || 0;
     const ewt = length * avgTime;
 
-    await AnalyticsService.logEvent({
-      type: 'QUEUE_ESTIMATE',
-      venueId: venueId as string,
-      payload: { serviceType, ewt },
-      timestamp: new Date().toISOString()
-    });
+    try {
+      await AnalyticsService.logEvent({
+        type: 'QUEUE_ESTIMATE',
+        venueId: venueId as string,
+        payload: { serviceType, ewt },
+        timestamp: new Date().toISOString()
+      });
 
-    res.json({ estimatedWaitTime: ewt, unit: 'minutes', confidence: 0.95 });
+      res.json({ estimatedWaitTime: ewt, unit: 'minutes', confidence: 0.95 });
+    } catch (error) {
+      console.error('Queue Estimate Error:', error);
+      res.status(500).json({ error: 'Failed to generate queue estimate' });
+    }
   });
 
   /**
@@ -153,8 +146,13 @@ export async function createServer() {
    */
   app.get('/api/analytics/report', async (req, res) => {
     const { venueId = 'stadium_01', type } = req.query;
-    const report = await AnalyticsService.getVenueReport(venueId as string, type as string);
-    res.json(report);
+    try {
+      const report = await AnalyticsService.getVenueReport(venueId as string, type as string);
+      res.json(report);
+    } catch (error) {
+      console.error('Analytics Report Error:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics report' });
+    }
   });
 
   /**
@@ -163,69 +161,31 @@ export async function createServer() {
    */
   app.post('/api/chat', aiLimiter, async (req, res) => {
     const validation = ChatSchema.safeParse(req.body);
-    if (!validation.success) return res.status(400).json({ error: validation.error });
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Invalid chat message', details: validation.error });
+    }
 
     const { message, context, userId } = validation.data;
 
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "MY_GEMINI_API_KEY") {
-      return res.status(500).json({ error: "GEMINI_API_KEY not configured. Please add your API key in the AI Studio Secrets panel." });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+      return res.status(500).json({ 
+        error: "GEMINI_API_KEY not configured. Please add your API key in the AI Studio Secrets panel." 
+      });
     }
 
     try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        systemInstruction: `You are the FanFlow AI Venue Concierge. 
-        Context: ${JSON.stringify(context)}
-        Instructions: Provide concise, helpful guidance. Use tools for real-time data. 
-        Grounding: You have access to the latest venue safety protocols and facility maps.`,
-      });
-
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: message }] }],
-        tools: [{ functionDeclarations: [getQueueStatus, getVenueCongestion] } as any],
-      });
-
-      const response = result.response;
-      const functionCalls = response.functionCalls();
-
-      if (functionCalls && functionCalls.length > 0) {
-        const toolResults = [];
-        for (const call of functionCalls) {
-          let toolResponse;
-          if (call.name === "getQueueStatus" && db) {
-            const { userId: uid } = call.args as any;
-            const snapshot = await db.collection('queues').where('userId', '==', uid).where('status', '==', 'waiting').get();
-            toolResponse = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          } else if (call.name === "getVenueCongestion") {
-            const venue = await VenueService.getVenueData((call.args as any).venueId || 'stadium_01');
-            toolResponse = { congestion: venue.congestionLevel, status: "Normal", gates: venue.gates.map(g => g.name) };
-          }
-
-          toolResults.push({
-            functionResponse: { name: call.name, response: { result: toolResponse } }
-          });
-        }
-
-        const secondResult = await model.generateContent({
-          contents: [
-            { role: 'user', parts: [{ text: message }] },
-            response.candidates![0].content,
-            { role: 'user', parts: toolResults as any }
-          ]
-        });
-
-        return res.json({ text: secondResult.response.text() });
-      }
-
-      res.json({ text: response.text() });
+      const responseText = await AIService.processChat(message, context, userId);
+      res.json({ text: responseText });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error('AI Chat Error:', error);
+      res.status(500).json({ error: error.message || 'AI processing failed' });
     }
   });
 
   // --- Vite / Static Files ---
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
-    // Skip Vite
+    // Skip Vite in test environment
   } else if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({ server: { middlewareMode: true }, appType: 'spa' });
     app.use(vite.middlewares);
@@ -241,6 +201,11 @@ export async function createServer() {
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   createServer().then(app => {
     const PORT = 3000;
-    app.listen(PORT, '0.0.0.0', () => console.log(`Server running at http://localhost:${PORT}`));
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[Server] FanFlow AI Backend running at http://0.0.0.0:${PORT}`);
+      console.log(`[Server] Health check: http://0.0.0.0:${PORT}/api/health`);
+    });
+  }).catch(err => {
+    console.error('[Server] Failed to start server:', err);
   });
 }
