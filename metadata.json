@@ -1,6 +1,6 @@
 {
   "name": "FanFlow AI",
-  "description": "A high-efficiency solution for large-scale sporting venues, featuring dynamic crowd routing, virtual queuing, and an AI venue concierge powered by Gemini 3 Flash with Function Calling.",
+  "description": "An enterprise-grade venue management solution featuring dynamic crowd routing, virtual queuing, and an AI concierge powered by Gemini 1.5 Flash with BigQuery analytics and Google Maps integration.",
   "requestFramePermissions": ["geolocation"],
-  "majorCapabilities": ["AI", "Real-time", "Mapping"]
+  "majorCapabilities": ["AI", "Real-time", "Mapping", "Analytics"]
 }
