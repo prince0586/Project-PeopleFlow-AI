@@ -5,13 +5,25 @@ interface LiveMapProps {
   activeRoute?: any;
 }
 
+/**
+ * LiveMap Component
+ * 
+ * Renders a simulated live venue map with dynamic routing and gate markers.
+ * Optimized with React.memo to prevent unnecessary re-renders during high-frequency updates.
+ * 
+ * @component
+ */
 export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
   return (
     <div className="flex flex-col gap-4 h-full" role="region" aria-labelledby="map-title">
       <div className="flex items-center justify-between">
         <div id="map-title" className="col-title flex items-center gap-2 font-bold text-sm text-text-sub uppercase tracking-wider">
           <MapIcon size={14} aria-hidden="true" />
-          Venue Live Map {activeRoute && <span className="text-brand flex items-center gap-1 ml-2" aria-label="Route is active"><Navigation size={10} aria-hidden="true" /> Route Active</span>}
+          Venue Live Map {activeRoute && (
+            <span className="text-brand flex items-center gap-1 ml-2" aria-live="polite">
+              <Navigation size={10} aria-hidden="true" /> Route Active
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           <button className="p-1.5 hover:bg-bg rounded border border-border text-text-sub" aria-label="Toggle Layers"><Layers size={14} /></button>
@@ -67,10 +79,14 @@ export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
                 </svg>
 
                 {/* Recommended Gate */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20 scale-125 transition-transform">
+                <div 
+                  className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20 scale-125 transition-transform"
+                  role="img"
+                  aria-label={`Recommended Gate: ${activeRoute.recommendedGate.name}`}
+                >
                   <div className="w-4 h-4 bg-brand rounded-full border-2 border-white shadow-md relative" />
                   <span className="text-[9px] font-bold mt-1 bg-brand text-white px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
-                    <Navigation size={8} /> {activeRoute.recommendedGate.name}
+                    <Navigation size={8} aria-hidden="true" /> {activeRoute.recommendedGate.name}
                   </span>
                 </div>
 
@@ -79,6 +95,8 @@ export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
                   <div 
                     key={alt.id} 
                     className={`absolute flex flex-col items-center opacity-60 hover:opacity-100 transition-opacity`}
+                    role="img"
+                    aria-label={`Alternative Gate: ${alt.name}`}
                     style={{ 
                       bottom: i === 0 ? '0' : '50%', 
                       left: i === 0 ? '50%' : '0',

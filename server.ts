@@ -7,6 +7,8 @@ import admin from 'firebase-admin';
 import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
+import helmet from 'helmet';
+import compression from 'compression';
 import { VenueService } from './server/services/venueService';
 import { AnalyticsService } from './server/services/analyticsService';
 import { AIService } from './server/services/aiService';
@@ -63,6 +65,12 @@ export async function createServer() {
   // Trust proxy is required for express-rate-limit to work correctly behind Cloud Run/Nginx
   app.set('trust proxy', 1);
 
+  // Security and Performance Middleware
+  app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for development/Vite compatibility
+    crossOriginEmbedderPolicy: false
+  }));
+  app.use(compression());
   app.use(cors());
   app.use(express.json());
   app.use('/api', apiLimiter); // Removed trailing slash for better matching
@@ -194,6 +202,15 @@ export async function createServer() {
     app.use(express.static(distPath));
     app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
   }
+
+  // Global Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('[Global Error Handler]', err);
+    res.status(err.status || 500).json({
+      error: err.message || 'Internal Server Error',
+      timestamp: new Date().toISOString()
+    });
+  });
 
   return app;
 }

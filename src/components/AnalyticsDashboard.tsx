@@ -1,13 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Activity, PieChart } from 'lucide-react';
 
+/**
+ * AnalyticsDashboard Component
+ * 
+ * Displays real-time venue performance metrics retrieved from the simulated BigQuery backend.
+ * Features automatic polling and detailed loading/error states for high reliability.
+ * 
+ * @component
+ */
 export const AnalyticsDashboard = React.memo(() => {
   const [report, setReport] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [venueId, setVenueId] = useState('stadium_01');
-  const [eventType, setEventType] = useState('');
+  const [venueId, setVenueId] = useState<string>('stadium_01');
+  const [eventType, setEventType] = useState<string>('');
 
+  /**
+   * Effect hook to fetch analytics reports on mount and when filters change.
+   * Includes a 30-second polling interval for real-time updates.
+   */
   useEffect(() => {
     const fetchReport = async () => {
       setLoading(true);
@@ -19,18 +31,44 @@ export const AnalyticsDashboard = React.memo(() => {
         const data = await res.json();
         setReport(data);
       } catch (err) {
-        console.error('Analytics Error:', err);
+        console.error('[AnalyticsDashboard] Fetch Error:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
       } finally {
         setLoading(false);
       }
     };
+    
     fetchReport();
-    const interval = setInterval(fetchReport, 30000); // Refresh every 30s
+    const interval = setInterval(fetchReport, 30000); 
     return () => clearInterval(interval);
   }, [venueId, eventType]);
 
-  if (loading && !report) return <div className="animate-pulse h-20 bg-bg rounded-xl border border-border" />;
+  if (loading && !report) {
+    return (
+      <div className="bg-surface border border-border rounded-xl p-4 shadow-sm space-y-4 animate-pulse">
+        <div className="flex justify-between items-center">
+          <div className="h-3 w-24 bg-bg rounded" />
+          <div className="h-3 w-12 bg-bg rounded" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-8 bg-bg rounded" />
+          <div className="h-8 bg-bg rounded" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="h-2 w-16 bg-bg rounded" />
+            <div className="h-6 w-12 bg-bg rounded" />
+            <div className="h-1 bg-bg rounded-full" />
+          </div>
+          <div className="space-y-2">
+            <div className="h-2 w-16 bg-bg rounded" />
+            <div className="h-6 w-12 bg-bg rounded" />
+            <div className="h-1 bg-bg rounded-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error && !report) {
     return (

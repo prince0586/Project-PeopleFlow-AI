@@ -10,10 +10,21 @@ interface VirtualQueueProps {
   user: User | null;
 }
 
+/**
+ * VirtualQueue Component
+ * 
+ * Manages the user's virtual queue tokens and allows joining new queues.
+ * Integrates with Firestore for real-time updates and the backend API for wait time estimation.
+ * 
+ * @component
+ */
 export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
   const [tokens, setTokens] = useState<QueueToken[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
+  /**
+   * Effect hook to subscribe to the user's queue tokens in Firestore.
+   */
   useEffect(() => {
     if (!user) {
       setTokens([]);
@@ -22,10 +33,17 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
     const q = query(collection(db, 'queues'), where('userId', '==', user.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setTokens(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as QueueToken)));
+    }, (error) => {
+      console.error('[VirtualQueue] Firestore Subscription Error:', error);
     });
     return () => unsubscribe();
   }, [user]);
 
+  /**
+   * Joins a specific service queue.
+   * 
+   * @param type - The type of service (e.g., 'concession', 'restroom').
+   */
   const joinQueue = useCallback(async (type: string) => {
     if (!user) {
       signIn();
@@ -34,6 +52,8 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/queue/estimate?serviceType=${type}&queueLength=${Math.floor(Math.random() * 20)}`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      
       const { estimatedWaitTime } = await res.json();
       
       await addDoc(collection(db, 'queues'), {
@@ -45,7 +65,7 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
         estimatedWaitTime
       });
     } catch (err) {
-      console.error('Queue Error:', err);
+      console.error('[VirtualQueue] Join Error:', err);
     } finally {
       setLoading(false);
     }
@@ -69,7 +89,11 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-bg flex items-center justify-center text-text-sub group-hover:text-brand transition-colors">
-                <Users size={16} aria-hidden="true" />
+                {loading ? (
+                  <div className="w-4 h-4 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Users size={16} aria-hidden="true" />
+                )}
               </div>
               <span className="capitalize font-bold text-sm text-text-main">{type}</span>
             </div>

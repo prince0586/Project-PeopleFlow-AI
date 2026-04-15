@@ -7,21 +7,41 @@ interface AIConciergeProps {
   user: User | null;
 }
 
+/**
+ * AIConcierge Component
+ * 
+ * Provides a chat interface for the FanFlow AI Venue Concierge.
+ * Communicates with the Gemini-powered backend API to provide real-time assistance.
+ * 
+ * @component
+ */
 export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Effect hook to auto-scroll the chat window to the latest message.
+   */
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, loading]);
 
+  /**
+   * Sends a user message to the AI backend and handles the response.
+   */
   const sendMessage = useCallback(async () => {
     if (!input.trim() || loading) return;
-    const userMsg: ChatMessage = { role: 'user', content: input, timestamp: new Date().toISOString() };
+    
+    const userMsg: ChatMessage = { 
+      role: 'user', 
+      content: input, 
+      timestamp: new Date().toISOString() 
+    };
+    
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
@@ -36,12 +56,26 @@ export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
           userId: user?.uid 
         })
       });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
+      
       const data = await res.json();
-      const aiMsg: ChatMessage = { role: 'model', content: data.text || data.error, timestamp: new Date().toISOString() };
+      const aiMsg: ChatMessage = { 
+        role: 'model', 
+        content: data.text, 
+        timestamp: new Date().toISOString() 
+      };
       setMessages(prev => [...prev, aiMsg]);
-    } catch (err) {
-      console.error('Chat Error:', err);
-      setMessages(prev => [...prev, { role: 'model', content: "I'm having trouble connecting to the venue systems. Please try again shortly.", timestamp: new Date().toISOString() }]);
+    } catch (err: any) {
+      console.error('[AIConcierge] Chat Error:', err);
+      setMessages(prev => [...prev, { 
+        role: 'model', 
+        content: `I'm having trouble connecting to the venue systems: ${err.message}. Please try again shortly.`, 
+        timestamp: new Date().toISOString() 
+      }]);
     } finally {
       setLoading(false);
     }
@@ -58,7 +92,9 @@ export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
         ref={scrollRef}
         className="flex-1 bg-bg rounded-xl border border-border p-4 overflow-y-auto space-y-4 custom-scrollbar"
         aria-live="polite"
+        aria-atomic="false"
         aria-busy={loading}
+        role="log"
       >
         {messages.length === 0 && (
           <div className="text-center space-y-4 mt-10 animate-in fade-in zoom-in duration-700">
