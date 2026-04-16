@@ -1,4 +1,5 @@
 import React, { ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -9,53 +10,62 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * ErrorBoundary Component
+ * 
+ * Catches JavaScript errors anywhere in their child component tree,
+ * logs those errors, and displays a fallback UI instead of the component tree that crashed.
+ */
 export class ErrorBoundary extends React.Component<Props, State> {
-  public state: State;
-  public props: Props;
-
   constructor(props: Props) {
     super(props);
-    this.props = props;
-    this.state = { hasError: false, error: null };
+    (this as any).state = {
+      hasError: false,
+      error: null
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
   }
 
-  render() {
-    if (this.state.hasError) {
+  public render(): ReactNode {
+    const state = (this as any).state;
+    if (state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] p-6 font-sans">
-          <div className="max-w-md w-full bg-[#141414] border border-[#262626] rounded-2xl p-8 text-center shadow-2xl">
-            <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div className="min-h-screen bg-bg flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-surface border border-accent-red/30 rounded-2xl p-8 shadow-2xl text-center space-y-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent-red/10 text-accent-red mb-2">
+              <AlertTriangle size={32} />
             </div>
-            <h1 className="text-xl font-bold text-white mb-2">System Interruption</h1>
-            <p className="text-sm text-gray-400 mb-6">
-              FanFlow AI encountered an unexpected error. Our engineering team has been notified.
+            <h1 className="text-2xl font-bold text-text-main">System Interruption</h1>
+            <p className="text-text-sub text-sm leading-relaxed">
+              An unexpected error occurred in the FanFlow AI engine. Our automated systems have been notified.
             </p>
+            <div className="p-4 bg-bg rounded-lg border border-border text-left">
+              <p className="text-[10px] font-mono text-accent-red break-all">
+                {state.error?.message || 'Unknown system error'}
+              </p>
+            </div>
             <button
               onClick={() => window.location.reload()}
-              className="w-full bg-[#0070f3] text-white font-bold py-3 rounded-xl hover:bg-[#0060d3] transition-all shadow-lg"
+              className="w-full flex items-center justify-center gap-2 bg-brand text-white py-3 rounded-xl font-bold hover:bg-brand/90 transition-all shadow-lg shadow-brand/20"
             >
+              <RefreshCw size={18} />
               Restart Application
             </button>
-            {process.env.NODE_ENV === 'development' && (
-              <pre className="mt-6 p-4 bg-black rounded-lg text-left text-[10px] text-red-400 overflow-auto max-h-40 border border-red-500/20">
-                {this.state.error?.message}
-                {this.state.error?.stack}
-              </pre>
-            )}
+            <p className="text-[10px] text-text-sub italic">
+              FanFlow AI v2.1.0 • Enterprise Resilience Layer
+            </p>
           </div>
         </div>
       );
     }
 
-    return this.props.children;
+    return (this as any).props.children;
   }
 }

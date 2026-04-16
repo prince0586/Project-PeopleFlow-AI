@@ -7,6 +7,8 @@ import { CrowdRouting } from './components/CrowdRouting';
 import { AIConcierge } from './components/AIConcierge';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { LiveMap } from './components/LiveMap';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Loader2 } from 'lucide-react';
 
 /**
  * FanFlow AI - Enterprise Venue Management System
@@ -19,6 +21,7 @@ import { LiveMap } from './components/LiveMap';
  */
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>('light');
   const [activeRoute, setActiveRoute] = useState<any>(null);
 
@@ -28,6 +31,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
+      setIsAuthReady(true);
       if (u) {
         console.log(`[App] User authenticated: ${u.email}`);
       }
@@ -77,59 +81,75 @@ export default function App() {
     `min-h-screen flex flex-col transition-colors duration-300 bg-bg text-text-main`
   , []);
 
-  return (
-    <div className={themeClasses}>
-      <Header user={user} onToggleTheme={toggleTheme} currentTheme={theme} />
-      
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-px bg-border overflow-hidden" role="main">
-        {/* Left Sidebar: Queues & Analytics */}
-        <section className="bg-surface p-6 overflow-y-auto flex flex-col gap-6 border-r border-border" aria-label="Queues and Analytics Sidebar">
-          <VirtualQueue user={user} />
-          <AnalyticsDashboard />
-        </section>
-        
-        {/* Center: Live Map & Routing */}
-        <section className="bg-surface p-6 overflow-y-auto flex flex-col gap-6" aria-label="Live Navigation and Routing">
-          <div className="flex-1 min-h-[400px]">
-            <LiveMap activeRoute={activeRoute} />
-          </div>
-          <div className="h-[300px]">
-            <CrowdRouting onRouteCalculated={setActiveRoute} />
-          </div>
-        </section>
-        
-        {/* Right Sidebar: AI Concierge */}
-        <section className="bg-surface p-6 overflow-y-auto border-l border-border" aria-label="AI Support Sidebar">
-          <AIConcierge user={user} />
-        </section>
-      </main>
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-brand animate-spin" />
+          <p className="text-sm font-bold text-text-sub uppercase tracking-widest animate-pulse">
+            Initializing FanFlow AI...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-      <footer className="bg-surface border-t border-border px-10 py-4 flex flex-wrap items-center gap-x-8 gap-y-2 text-[11px] text-text-sub" role="contentinfo">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-brand animate-pulse" aria-hidden="true" />
-          System Status: <span className="text-text-main font-bold">Operational</span>
-        </div>
-        <div className="flex items-center gap-2">
-          Latency: <span className="text-text-main font-bold">&lt;150ms</span>
-        </div>
-        <div className="flex items-center gap-2">
-          Analytics Tier: <span className="text-brand font-bold">Google Cloud Enterprise</span>
-        </div>
+  return (
+    <ErrorBoundary>
+      <div className={themeClasses}>
+        <Header user={user} onToggleTheme={toggleTheme} currentTheme={theme} />
         
-        <div className="ml-auto flex items-center gap-4">
-          <button 
-            onClick={toggleHighContrast}
-            className="px-2 py-1 border border-border rounded hover:bg-bg transition-colors font-bold uppercase tracking-tighter focus:ring-2 focus:ring-brand"
-            aria-pressed={theme === 'high-contrast'}
-            aria-label="Toggle High Contrast Mode"
-          >
-            {theme === 'high-contrast' ? 'Standard Mode' : 'High Contrast'}
-          </button>
-          <div className="text-text-sub italic">
-            FanFlow AI v2.1.0 • 2026
+        <main className="flex-1 grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-px bg-border overflow-hidden" role="main">
+          {/* Left Sidebar: Queues & Analytics */}
+          <section className="bg-surface p-6 overflow-y-auto flex flex-col gap-6 border-r border-border" aria-label="Queues and Analytics Sidebar">
+            <VirtualQueue user={user} />
+            <AnalyticsDashboard />
+          </section>
+          
+          {/* Center: Live Map & Routing */}
+          <section className="bg-surface p-6 overflow-y-auto flex flex-col gap-6" aria-label="Live Navigation and Routing">
+            <div className="flex-1 min-h-[400px]">
+              <LiveMap activeRoute={activeRoute} />
+            </div>
+            <div className="h-[300px]">
+              <CrowdRouting onRouteCalculated={setActiveRoute} />
+            </div>
+          </section>
+          
+          {/* Right Sidebar: AI Concierge */}
+          <section className="bg-surface p-6 overflow-y-auto border-l border-border" aria-label="AI Support Sidebar">
+            <AIConcierge user={user} />
+          </section>
+        </main>
+
+        <footer className="bg-surface border-t border-border px-10 py-4 flex flex-wrap items-center gap-x-8 gap-y-2 text-[11px] text-text-sub" role="contentinfo">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-brand animate-pulse" aria-hidden="true" />
+            System Status: <span className="text-text-main font-bold">Operational</span>
           </div>
-        </div>
-      </footer>
-    </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-accent-green" aria-hidden="true" />
+            Analytics: <span className="text-text-main font-bold">Live Aggregation</span>
+          </div>
+          <div className="flex items-center gap-2">
+            Latency: <span className="text-text-main font-bold">&lt;150ms</span>
+          </div>
+          
+          <div className="ml-auto flex items-center gap-4">
+            <button 
+              onClick={toggleHighContrast}
+              className="px-2 py-1 border border-border rounded hover:bg-bg transition-colors font-bold uppercase tracking-tighter focus:ring-2 focus:ring-brand"
+              aria-pressed={theme === 'high-contrast'}
+              aria-label="Toggle High Contrast Mode"
+            >
+              {theme === 'high-contrast' ? 'Standard Mode' : 'High Contrast'}
+            </button>
+            <div className="text-text-sub italic">
+              FanFlow AI v2.1.0 • 2026
+            </div>
+          </div>
+        </footer>
+      </div>
+    </ErrorBoundary>
   );
 }

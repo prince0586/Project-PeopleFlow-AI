@@ -77,10 +77,27 @@ export async function createServer() {
   app.use(compression());
   app.use(cors());
   app.use(express.json());
-  app.use('/api', apiLimiter); // Removed trailing slash for better matching
-
-  // Health check endpoint
+  
+  // Health check endpoint (not rate limited)
   app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // Analytics Report (not rate limited for dashboard availability)
+  app.get('/api/analytics/report', async (req, res) => {
+    const { venueId = 'stadium_01', type } = req.query;
+    console.log(`[Server] Analytics Report requested for venue: ${venueId}, type: ${type}`);
+    try {
+      const report = await AnalyticsService.getVenueReport(venueId as string, type as string);
+      res.json(report);
+    } catch (error) {
+      console.error('Analytics Report Error:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics report' });
+    }
+  });
+
+  // Seed analytics in background
+  AnalyticsService.seedAnalytics().catch(e => console.error('[Server] Seeding failed:', e));
+
+  app.use('/api', apiLimiter); 
 
   // --- API Routes ---
 
@@ -149,21 +166,6 @@ export async function createServer() {
     } catch (error) {
       console.error('Queue Estimate Error:', error);
       res.status(500).json({ error: 'Failed to generate queue estimate' });
-    }
-  });
-
-  /**
-   * @route GET /api/analytics/report
-   * @desc Fetch venue performance metrics (Simulated BigQuery Report).
-   */
-  app.get('/api/analytics/report', async (req, res) => {
-    const { venueId = 'stadium_01', type } = req.query;
-    try {
-      const report = await AnalyticsService.getVenueReport(venueId as string, type as string);
-      res.json(report);
-    } catch (error) {
-      console.error('Analytics Report Error:', error);
-      res.status(500).json({ error: 'Failed to fetch analytics report' });
     }
   });
 

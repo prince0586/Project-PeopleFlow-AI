@@ -62,6 +62,20 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "role", "content", "timestamp"]
+    },
+    "AnalyticsLog": {
+      "title": "Venue Analytics Log",
+      "description": "Event log for system analytics and reporting.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "venueId": { "type": "string" },
+        "payload": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "processedAt": { "type": "string", "format": "date-time" },
+        "ingestionTier": { "type": "string" }
+      },
+      "required": ["type", "venueId", "timestamp"]
     }
   },
   "firestore": {
@@ -80,6 +94,10 @@
     "/chats/{chatId}/messages/{messageId}": {
       "schema": "ChatMessage",
       "description": "Chat history for AI concierge."
+    },
+    "/venue_analytics/{logId}": {
+      "schema": "AnalyticsLog",
+      "description": "System-wide analytics events."
     }
   }
 }

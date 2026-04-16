@@ -18,29 +18,66 @@ export const AnalyticsDashboard = React.memo(() => {
 
   /**
    * Effect hook to fetch analytics reports on mount and when filters change.
-   * Includes a 30-second polling interval for real-time updates.
+   * Includes a 30-second polling interval for real-time updates and retry logic.
    */
   useEffect(() => {
-    const fetchReport = async () => {
+    let isMounted = true;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
+
+    const fetchReport = async (signal?: AbortSignal) => {
+      if (!isMounted) return;
+      
       setLoading(true);
       setError(null);
+      
       try {
         const url = `/api/analytics/report?venueId=${venueId}${eventType ? `&type=${eventType}` : ''}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const res = await fetch(url, { signal });
+        
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Server returned non-JSON response. It might be restarting.');
+        }
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+        }
+        
         const data = await res.json();
-        setReport(data);
-      } catch (err) {
+        if (isMounted) {
+          setReport(data);
+          retryCount = 0; // Reset retry count on success
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+        
         console.error('[AnalyticsDashboard] Fetch Error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
+        if (isMounted) {
+          const message = err instanceof Error ? err.message : 'Failed to fetch analytics';
+          setError(message);
+          
+          // Retry logic for "Failed to fetch" (network errors)
+          if ((message.includes('Failed to fetch') || message.includes('Query Timeout')) && retryCount < MAX_RETRIES) {
+            retryCount++;
+            console.log(`[AnalyticsDashboard] Retrying fetch (${retryCount}/${MAX_RETRIES})...`);
+            setTimeout(() => fetchReport(signal), 2000 * retryCount);
+          }
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
     
-    fetchReport();
-    const interval = setInterval(fetchReport, 30000); 
-    return () => clearInterval(interval);
+    const controller = new AbortController();
+    fetchReport(controller.signal);
+    const interval = setInterval(() => fetchReport(controller.signal), 30000); 
+    return () => {
+      isMounted = false;
+      controller.abort();
+      clearInterval(interval);
+    };
   }, [venueId, eventType]);
 
   if (loading && !report) {
@@ -97,6 +134,12 @@ export const AnalyticsDashboard = React.memo(() => {
             <Activity size={10} aria-hidden="true" /> LIVE
           </div>
         </div>
+
+        {report?.warning && (
+          <div className="bg-accent-red/5 border border-accent-red/20 rounded p-2 text-[8px] text-accent-red italic leading-tight">
+            ⚠️ {report.warning}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2">
           <select 

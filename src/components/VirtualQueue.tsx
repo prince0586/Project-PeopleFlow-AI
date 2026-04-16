@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, ChevronRight, Clock } from 'lucide-react';
 import { User } from 'firebase/auth';
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, signIn } from '../firebase';
 import { QueueToken } from '../types';
 
@@ -61,7 +61,7 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
         venueId: 'stadium_01',
         serviceType: type,
         status: 'waiting',
-        joinedAt: new Date().toISOString(),
+        joinedAt: serverTimestamp(),
         estimatedWaitTime
       });
     } catch (err) {

@@ -36,8 +36,9 @@ if (fs.existsSync(firebaseConfigPath)) {
  * 
  * @returns The Firestore database instance or null if the SDK is not initialized.
  */
-export const getFirestoreDB = (): Firestore | null => {
+export const getFirestoreDB = (useDefault: boolean = false): Firestore | null => {
   if (!admin.apps.length) return null;
   const app = admin.app();
+  if (useDefault) return getFirestore(app);
   return firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
 };

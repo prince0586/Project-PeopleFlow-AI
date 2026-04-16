@@ -28,6 +28,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isRecent(ts) {
+      return ts is timestamp && 
+             ts <= request.time && 
+             ts > request.time - duration.value(300, 's');
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -49,7 +55,8 @@ service cloud.firestore {
              data.keys().hasAll(['userId', 'venueId', 'serviceType', 'status', 'joinedAt']) &&
              data.userId == request.auth.uid &&
              data.status in ['waiting', 'cancelled'] &&
-             data.serviceType in ['concession', 'restroom', 'entry', 'exit'];
+             data.serviceType in ['concession', 'restroom', 'entry', 'exit'] &&
+             data.joinedAt is timestamp && isRecent(data.joinedAt);
     }
 
     function isValidChatMessage(data) {
@@ -58,7 +65,8 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              data.role in ['user', 'model'] &&
              data.content is string &&
-             data.content.size() < 5000;
+             data.content.size() < 5000 &&
+             data.timestamp is timestamp && isRecent(data.timestamp);
     }
 
     // ===============================================================
@@ -88,6 +96,11 @@ service cloud.firestore {
     match /chats/{chatId}/messages/{messageId} {
       allow read: if isAuthenticated() && request.auth.uid == chatId;
       allow create: if isAuthenticated() && request.auth.uid == chatId && isValidChatMessage(request.resource.data);
+    }
+
+    match /venue_analytics/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.timestamp is timestamp && isRecent(request.resource.data.timestamp);
     }
 
     // Admin Helper
