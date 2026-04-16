@@ -6,13 +6,39 @@
   --font-mono: 'Consolas', 'Monaco', monospace;
   --color-brand: #4285F4;
   --color-brand-dark: #3367D6;
-  --color-bg: #F8F9FA;
-  --color-surface: #FFFFFF;
-  --color-text-main: #202124;
-  --color-text-sub: #5F6368;
-  --color-border: #DADCE0;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-text-main: var(--text-main);
+  --color-text-sub: var(--text-sub);
+  --color-border: var(--border);
   --color-accent-green: #34A853;
   --color-accent-amber: #FBBC04;
+}
+
+@layer base {
+  :root {
+    --bg: #F8F9FA;
+    --surface: #FFFFFF;
+    --text-main: #202124;
+    --text-sub: #5F6368;
+    --border: #DADCE0;
+  }
+
+  :root.dark {
+    --bg: #121212;
+    --surface: #1E1E1E;
+    --text-main: #E8EAED;
+    --text-sub: #9AA0A6;
+    --border: #3C4043;
+  }
+
+  :root.high-contrast {
+    --bg: #000000;
+    --surface: #000000;
+    --text-main: #FFFFFF;
+    --text-sub: #FFFF00;
+    --border: #FFFFFF;
+  }
 }
 
 body {

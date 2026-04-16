@@ -12,7 +12,7 @@ import compression from 'compression';
 import { VenueService } from './server/services/venueService';
 import { AnalyticsService } from './server/services/analyticsService';
 import { AIService } from './server/services/aiService';
-import './server/db'; // Ensure DB is initialized
+import { getFirestoreDB } from './server/db';
 
 dotenv.config();
 
@@ -31,7 +31,11 @@ const RouteSchema = z.object({
 const ChatSchema = z.object({
   message: z.string().min(1).max(1000),
   context: z.record(z.string(), z.any()).optional(),
-  userId: z.string().optional()
+  userId: z.string().optional(),
+  history: z.array(z.object({
+    role: z.enum(['user', 'model']),
+    content: z.string()
+  })).optional()
 });
 
 /**
@@ -39,7 +43,7 @@ const ChatSchema = z.object({
  */
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Increased limit to prevent "Failed to fetch" due to throttling
+  max: 5000, // Increased limit significantly to prevent "Failed to fetch"
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -173,7 +177,7 @@ export async function createServer() {
       return res.status(400).json({ error: 'Invalid chat message', details: validation.error });
     }
 
-    const { message, context, userId } = validation.data;
+    const { message, context, userId, history } = validation.data;
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
@@ -183,7 +187,25 @@ export async function createServer() {
     }
 
     try {
-      const responseText = await AIService.processChat(message, context, userId);
+      // Fetch past user interactions for personalization
+      let pastInteractions: any[] = [];
+      const db = getFirestoreDB();
+      if (userId && db) {
+        const snapshot = await db.collection('user_interactions')
+          .where('userId', '==', userId)
+          .orderBy('timestamp', 'desc')
+          .limit(5)
+          .get();
+        pastInteractions = snapshot.docs.map(doc => doc.data().message);
+      }
+
+      const enhancedContext = {
+        ...context,
+        pastInteractions,
+        timestamp: new Date().toISOString()
+      };
+
+      const responseText = await AIService.processChat(message, enhancedContext, userId, history);
       res.json({ text: responseText });
     } catch (error: any) {
       console.error('AI Chat Error:', error);

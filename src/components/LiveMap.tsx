@@ -1,5 +1,9 @@
-import React from 'react';
-import { Map as MapIcon, Layers, Maximize2, Navigation } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Map as MapIcon, Layers, Maximize2, Navigation, AlertCircle } from 'lucide-react';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { VenueData, Gate } from '../types';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface LiveMapProps {
   activeRoute?: any;
@@ -8,24 +12,65 @@ interface LiveMapProps {
 /**
  * LiveMap Component
  * 
- * Renders a simulated live venue map with dynamic routing and gate markers.
- * Optimized with React.memo to prevent unnecessary re-renders during high-frequency updates.
+ * Renders a simulated live venue map with real-time Firestore updates and smooth animations.
+ * Subscribes to venue data changes to update gate status and congestion dynamically.
  * 
  * @component
  */
 export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
+  const [venue, setVenue] = useState<VenueData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Effect hook to subscribe to real-time venue updates from Firestore.
+   */
+  useEffect(() => {
+    const venueId = 'stadium_01';
+    const unsubscribe = onSnapshot(doc(db, 'venues', venueId), (snapshot) => {
+      if (snapshot.exists()) {
+        setVenue(snapshot.data() as VenueData);
+        setError(null);
+      } else {
+        console.warn(`[LiveMap] Venue ${venueId} not found in Firestore.`);
+        setError('Venue data unavailable');
+      }
+    }, (err) => {
+      console.error('[LiveMap] Firestore Subscription Error:', err);
+      setError('Real-time updates failed');
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Helper to get color based on congestion
+  const getCongestionColor = (level: number) => {
+    if (level > 0.7) return 'var(--color-accent-red, #ef4444)';
+    if (level > 0.4) return 'var(--color-accent-amber, #f59e0b)';
+    return 'var(--color-accent-green, #10b981)';
+  };
+
   return (
     <div className="flex flex-col gap-4 h-full" role="region" aria-labelledby="map-title">
       <div className="flex items-center justify-between">
         <div id="map-title" className="col-title flex items-center gap-2 font-bold text-sm text-text-sub uppercase tracking-wider">
           <MapIcon size={14} aria-hidden="true" />
           Venue Live Map {activeRoute && (
-            <span className="text-brand flex items-center gap-1 ml-2" aria-live="polite">
+            <motion.span 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="text-brand flex items-center gap-1 ml-2" 
+              aria-live="polite"
+            >
               <Navigation size={10} aria-hidden="true" /> Route Active
-            </span>
+            </motion.span>
           )}
         </div>
         <div className="flex gap-2">
+          {error && (
+            <div className="flex items-center gap-1 text-[10px] text-accent-red font-bold uppercase mr-2">
+              <AlertCircle size={12} /> {error}
+            </div>
+          )}
           <button className="p-1.5 hover:bg-bg rounded border border-border text-text-sub" aria-label="Toggle Layers"><Layers size={14} /></button>
           <button className="p-1.5 hover:bg-bg rounded border border-border text-text-sub" aria-label="Fullscreen"><Maximize2 size={14} /></button>
         </div>
@@ -35,7 +80,6 @@ export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
         {/* Simulated Google Maps View */}
         <div className="absolute inset-0 bg-[#f8f9fa] flex flex-col items-center justify-center">
           <div className="relative w-full h-full opacity-40 grayscale-[0.5] mix-blend-multiply pointer-events-none">
-            {/* Grid pattern to simulate map tiles */}
             <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#ccc 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
           </div>
           
@@ -46,75 +90,76 @@ export const LiveMap = React.memo(({ activeRoute }: LiveMapProps) => {
             {/* User Location Marker */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
               <div className="w-4 h-4 bg-brand rounded-full border-2 border-white shadow-lg relative z-10" />
-              <div className="w-8 h-8 bg-brand/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping" />
+              <motion.div 
+                animate={{ scale: [1, 2], opacity: [0.5, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-8 h-8 bg-brand/20 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" 
+              />
             </div>
 
-            {/* Static Gate Markers (Default) */}
-            {!activeRoute && (
-              <>
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-                  <div className="w-3 h-3 bg-accent-red rounded-full border-2 border-white shadow-sm relative" />
-                  <span className="text-[8px] font-bold mt-1 bg-white px-1 rounded shadow-sm">Gate A</span>
-                </div>
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 flex flex-col items-center">
-                  <div className="w-3 h-3 bg-accent-green rounded-full border-2 border-white shadow-sm relative" />
-                  <span className="text-[8px] font-bold mt-1 bg-white px-1 rounded shadow-sm">Gate B</span>
-                </div>
-              </>
-            )}
+            {/* Real-time Gate Markers */}
+            <AnimatePresence>
+              {venue?.gates.map((gate, index) => {
+                // Calculate position based on index for simulation
+                const angle = (index / venue.gates.length) * 2 * Math.PI;
+                const x = Math.cos(angle) * 96;
+                const y = Math.sin(angle) * 96;
+                
+                const isRecommended = activeRoute?.recommendedGate?.id === gate.id;
+                const isAlternative = activeRoute?.alternatives?.some((alt: any) => alt.id === gate.id);
 
-            {/* Dynamic Route Markers */}
-            {activeRoute && (
-              <>
-                {/* Recommended Route Path (Simulated) */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
-                  <path 
-                    d="M 96 96 L 96 20" 
-                    fill="none" 
-                    stroke="var(--color-brand)" 
-                    strokeWidth="2" 
-                    strokeDasharray="4 4"
-                    className="animate-[dash_20s_linear_infinite]"
-                  />
-                </svg>
-
-                {/* Recommended Gate */}
-                <div 
-                  className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20 scale-125 transition-transform"
-                  role="img"
-                  aria-label={`Recommended Gate: ${activeRoute.recommendedGate.name}`}
-                >
-                  <div className="w-4 h-4 bg-brand rounded-full border-2 border-white shadow-md relative" />
-                  <span className="text-[9px] font-bold mt-1 bg-brand text-white px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1">
-                    <Navigation size={8} aria-hidden="true" /> {activeRoute.recommendedGate.name}
-                  </span>
-                </div>
-
-                {/* Alternative Gates */}
-                {activeRoute.alternatives.map((alt: any, i: number) => (
-                  <div 
-                    key={alt.id} 
-                    className={`absolute flex flex-col items-center opacity-60 hover:opacity-100 transition-opacity`}
-                    role="img"
-                    aria-label={`Alternative Gate: ${alt.name}`}
-                    style={{ 
-                      bottom: i === 0 ? '0' : '50%', 
-                      left: i === 0 ? '50%' : '0',
-                      transform: i === 0 ? 'translate(-50%, 50%)' : 'translate(-50%, -50%)'
+                return (
+                  <motion.div 
+                    key={gate.id}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ 
+                      scale: isRecommended ? 1.25 : 1, 
+                      opacity: 1,
+                      x: x,
+                      y: y
                     }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    className={`absolute flex flex-col items-center z-10 ${isRecommended ? 'z-20' : ''}`}
+                    role="img"
+                    aria-label={`Gate ${gate.name}: ${Math.round(gate.congestion * 100)}% congested`}
                   >
-                    <div className="w-3 h-3 bg-text-sub rounded-full border-2 border-white shadow-sm relative" />
-                    <span className="text-[8px] font-bold mt-1 bg-white px-1 rounded shadow-sm">{alt.name}</span>
-                  </div>
-                ))}
-              </>
+                    <motion.div 
+                      animate={{ 
+                        backgroundColor: getCongestionColor(gate.congestion),
+                        boxShadow: isRecommended ? '0 0 10px var(--color-brand)' : 'none'
+                      }}
+                      className="w-3 h-3 rounded-full border-2 border-white shadow-sm relative" 
+                    />
+                    <span className={`text-[8px] font-bold mt-1 px-1 rounded shadow-sm whitespace-nowrap ${isRecommended ? 'bg-brand text-white' : 'bg-white'}`}>
+                      {gate.name}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* Dynamic Route Path */}
+            {activeRoute && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none overflow-visible">
+                <motion.path 
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  d="M 96 96 L 96 20" 
+                  fill="none" 
+                  stroke="var(--color-brand)" 
+                  strokeWidth="2" 
+                  strokeDasharray="4 4"
+                  className="animate-[dash_20s_linear_infinite]"
+                />
+              </svg>
             )}
           </div>
 
           <div className="absolute bottom-4 right-4 bg-white/80 backdrop-blur-sm p-2 rounded border border-border text-[9px] font-bold text-text-sub flex items-center gap-2">
             <div className="flex items-center gap-1"><span className="w-2 h-2 bg-accent-red rounded-full" /> High</div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 bg-accent-amber rounded-full" /> Med</div>
             <div className="flex items-center gap-1"><span className="w-2 h-2 bg-accent-green rounded-full" /> Low</div>
-            <span className="ml-2 border-l pl-2">Google Maps Platform</span>
+            <span className="ml-2 border-l pl-2">Real-time Data Active</span>
           </div>
         </div>
         

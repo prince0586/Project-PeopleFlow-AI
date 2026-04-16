@@ -1,10 +1,12 @@
 import React from 'react';
-import { LogOut, LogIn } from 'lucide-react';
+import { LogOut, LogIn, Sun, Moon } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { signIn, signOut } from '../firebase';
 
 interface HeaderProps {
   user: User | null;
+  onToggleTheme: () => void;
+  currentTheme: 'light' | 'dark' | 'high-contrast';
 }
 
 /**
@@ -15,7 +17,7 @@ interface HeaderProps {
  * 
  * @component
  */
-export const Header = React.memo(({ user }: HeaderProps) => (
+export const Header = React.memo(({ user, onToggleTheme, currentTheme }: HeaderProps) => (
   <header className="bg-surface border-bottom border-border px-10 py-4 flex justify-between items-center sticky top-0 z-50 shadow-sm" role="banner">
     <div className="flex items-center gap-3">
       <div className="w-8 h-8 bg-brand rounded-md flex items-center justify-center text-white font-bold text-lg" aria-hidden="true">F</div>
@@ -24,6 +26,14 @@ export const Header = React.memo(({ user }: HeaderProps) => (
       </h1>
     </div>
     <div className="flex items-center gap-4">
+      <button 
+        onClick={onToggleTheme}
+        className="p-2 hover:bg-bg rounded-full transition-colors text-text-sub"
+        aria-label={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
+      >
+        {currentTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
+      
       {user ? (
         <div className="flex items-center gap-3">
           <img 

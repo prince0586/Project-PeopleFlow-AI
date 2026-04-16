@@ -19,7 +19,7 @@ import { LiveMap } from './components/LiveMap';
  */
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [isHighContrast, setIsHighContrast] = useState<boolean>(false);
+  const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>('light');
   const [activeRoute, setActiveRoute] = useState<any>(null);
 
   /**
@@ -36,22 +36,50 @@ export default function App() {
   }, []);
 
   /**
-   * Toggles the high-contrast theme for accessibility.
+   * Effect hook to initialize and sync theme with system preferences and localStorage.
+   */
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('fanflow-theme') as any;
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    const initialTheme = savedTheme || (systemDark ? 'dark' : 'light');
+    setTheme(initialTheme);
+  }, []);
+
+  /**
+   * Effect hook to apply theme classes to the document root.
+   */
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark', 'high-contrast');
+    root.classList.add(theme);
+    localStorage.setItem('fanflow-theme', theme);
+  }, [theme]);
+
+  /**
+   * Toggles between light and dark modes.
+   */
+  const toggleTheme = useCallback(() => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  }, []);
+
+  /**
+   * Toggles high-contrast mode.
    */
   const toggleHighContrast = useCallback(() => {
-    setIsHighContrast(prev => !prev);
+    setTheme(prev => prev === 'high-contrast' ? 'light' : 'high-contrast');
   }, []);
 
   /**
    * Memoized theme classes to prevent unnecessary re-renders.
    */
   const themeClasses = useMemo(() => 
-    `min-h-screen flex flex-col transition-colors duration-300 ${isHighContrast ? 'bg-black text-white' : 'bg-bg text-text-main'}`
-  , [isHighContrast]);
+    `min-h-screen flex flex-col transition-colors duration-300 bg-bg text-text-main`
+  , []);
 
   return (
     <div className={themeClasses}>
-      <Header user={user} />
+      <Header user={user} onToggleTheme={toggleTheme} currentTheme={theme} />
       
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-[320px_1fr_320px] gap-px bg-border overflow-hidden" role="main">
         {/* Left Sidebar: Queues & Analytics */}
@@ -92,13 +120,13 @@ export default function App() {
           <button 
             onClick={toggleHighContrast}
             className="px-2 py-1 border border-border rounded hover:bg-bg transition-colors font-bold uppercase tracking-tighter focus:ring-2 focus:ring-brand"
-            aria-pressed={isHighContrast}
+            aria-pressed={theme === 'high-contrast'}
             aria-label="Toggle High Contrast Mode"
           >
-            {isHighContrast ? 'Standard Mode' : 'High Contrast'}
+            {theme === 'high-contrast' ? 'Standard Mode' : 'High Contrast'}
           </button>
           <div className="text-text-sub italic">
-            FanFlow AI v2.0.0 • 2026
+            FanFlow AI v2.1.0 • 2026
           </div>
         </div>
       </footer>

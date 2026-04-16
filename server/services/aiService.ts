@@ -65,13 +65,15 @@ export class AIService {
    * @param message - The user's input message string.
    * @param context - Additional context (e.g., current venue, user preferences).
    * @param userId - The ID of the authenticated user for personalization.
+   * @param history - Optional chat history for multi-turn conversation.
    * @returns A Promise resolving to the AI's response text.
    * @throws Error if the AI service is uninitialized or processing fails.
    */
   public static async processChat(
     message: string, 
     context: Record<string, any>, 
-    userId?: string
+    userId?: string,
+    history: any[] = []
   ): Promise<string> {
     if (!this.genAI) {
       throw new Error("[AIService] Service not initialized. Call init() first.");
@@ -80,19 +82,28 @@ export class AIService {
     try {
       const model: GenerativeModel = this.genAI.getGenerativeModel({
         model: "gemini-1.5-flash",
-        systemInstruction: this.getSystemInstruction(context),
+        systemInstruction: this.getSystemInstruction(context, userId),
       });
 
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: message }] }],
+      // Log interaction to Firestore for future personalization
+      if (userId) {
+        this.logInteraction(userId, message);
+      }
+
+      const chat = model.startChat({
+        history: history.map(h => ({
+          role: h.role === 'user' ? 'user' : 'model',
+          parts: [{ text: h.content }]
+        })),
         tools: [{ functionDeclarations: [this.getQueueStatusTool, this.getVenueCongestionTool] } as any],
       });
 
+      const result = await chat.sendMessage(message);
       const response = result.response;
       const functionCalls = response.functionCalls();
 
       if (functionCalls && functionCalls.length > 0) {
-        return await this.handleFunctionCalls(model, message, response, functionCalls);
+        return await this.handleFunctionCalls(model, message, response, functionCalls, history);
       }
 
       return response.text();
@@ -103,17 +114,55 @@ export class AIService {
   }
 
   /**
+   * Logs a user interaction to Firestore for personalization.
+   */
+  private static async logInteraction(userId: string, message: string): Promise<void> {
+    const db = getFirestoreDB();
+    if (db) {
+      try {
+        await db.collection('user_interactions').add({
+          userId,
+          message,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error("[AIService] Failed to log interaction:", err);
+      }
+    }
+  }
+
+  /**
    * Generates the system instruction string based on the provided context.
    * 
    * @param context - The application context.
+   * @param userId - Optional user ID for personalization.
    * @returns A formatted system instruction string.
    */
-  private static getSystemInstruction(context: Record<string, any>): string {
+  private static getSystemInstruction(context: Record<string, any>, userId?: string): string {
+    const venueDetails = `
+      Venue: Global Arena (stadium_01)
+      Capacity: 55,000
+      Facilities: 
+        - North Gate (Accessible, High Capacity)
+        - South Gate (Standard)
+        - East Gate (VIP & Premium)
+        - West Gate (Accessible, Express)
+      Amenities: 12 Concession stands, 8 Restroom blocks (all ADA compliant), 4 First Aid stations.
+      Safety: Emergency exits are clearly marked in green. In case of emergency, follow staff instructions.
+    `;
+
     return `You are the FanFlow AI Venue Concierge. 
-    Context: ${JSON.stringify(context)}
-    Instructions: Provide concise, helpful guidance. Use tools for real-time data. 
-    Grounding: You have access to the latest venue safety protocols and facility maps. 
-    Tone: Professional, helpful, and proactive.`;
+    ${venueDetails}
+    Current Context: ${JSON.stringify(context)}
+    User ID: ${userId || 'Guest'}
+    
+    Instructions: 
+    1. Provide concise, helpful guidance for fans at the venue.
+    2. Use tools to check real-time queue status or venue congestion if asked.
+    3. If the user has active queue tokens, acknowledge them.
+    4. Be proactive: if congestion is high, suggest alternative gates.
+    5. Tone: Professional, helpful, and proactive.
+    6. Personalization: If you know the user's name or past interactions (from context), use them to be more helpful.`;
   }
 
   /**
@@ -129,7 +178,8 @@ export class AIService {
     model: GenerativeModel,
     originalMessage: string,
     initialResponse: any,
-    functionCalls: any[]
+    functionCalls: any[],
+    history: any[] = []
   ): Promise<string> {
     const toolResults = [];
     const db = getFirestoreDB();
@@ -159,13 +209,16 @@ export class AIService {
       });
     }
 
-    const secondResult = await model.generateContent({
-      contents: [
-        { role: 'user', parts: [{ text: originalMessage }] },
-        initialResponse.candidates![0].content,
-        { role: 'user', parts: toolResults as any }
-      ]
+    const chat = model.startChat({
+      history: history.map(h => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.content }]
+      })),
+      tools: [{ functionDeclarations: [this.getQueueStatusTool, this.getVenueCongestionTool] } as any],
     });
+
+    // We need to send the function response back to the chat
+    const secondResult = await chat.sendMessage(toolResults as any);
 
     return secondResult.response.text();
   }

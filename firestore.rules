@@ -86,8 +86,8 @@ service cloud.firestore {
     }
 
     match /chats/{chatId}/messages/{messageId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId);
-      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data);
+      allow read: if isAuthenticated() && request.auth.uid == chatId;
+      allow create: if isAuthenticated() && request.auth.uid == chatId && isValidChatMessage(request.resource.data);
     }
 
     // Admin Helper
