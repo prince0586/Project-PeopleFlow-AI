@@ -40,8 +40,29 @@ export class VenueService {
           venueCache.set(venueId, data);
           return data;
         }
-      } catch (error) {
-        console.error('[VenueService] Firestore Retrieval Error:', error);
+      } catch (error: any) {
+        const errorMsg = (error.message || String(error)).toUpperCase();
+        const isFallbackError = errorMsg.includes('PERMISSION_DENIED') || 
+                               errorMsg.includes('NOT_FOUND') || 
+                               error.code === 5 || 
+                               error.code === 7;
+        
+        if (isFallbackError) {
+          try {
+            const defaultDb = getFirestoreDB(true);
+            if (defaultDb) {
+              const doc = await defaultDb.collection('venues').doc(venueId).get();
+              if (doc.exists) {
+                const data = doc.data() as VenueData;
+                venueCache.set(venueId, data);
+                return data;
+              }
+            }
+          } catch (innerErr) {
+            // Ignore inner error
+          }
+        }
+        console.error('[VenueService] Firestore Retrieval Error:', error.message || error);
       }
     }
 

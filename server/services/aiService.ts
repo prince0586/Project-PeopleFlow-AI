@@ -118,16 +118,35 @@ export class AIService {
    */
   private static async logInteraction(userId: string, message: string): Promise<void> {
     const db = getFirestoreDB();
-    if (db) {
-      try {
-        await db.collection('user_interactions').add({
-          userId,
-          message,
-          timestamp: new Date().toISOString()
-        });
-      } catch (err) {
-        console.error("[AIService] Failed to log interaction:", err);
+    if (!db) return;
+
+    const logData = {
+      userId,
+      message,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      await db.collection('user_interactions').add(logData);
+    } catch (err: any) {
+      const errorMsg = (err.message || String(err)).toUpperCase();
+      const isFallbackError = errorMsg.includes('PERMISSION_DENIED') || 
+                             errorMsg.includes('NOT_FOUND') || 
+                             err.code === 5 || 
+                             err.code === 7;
+      
+      if (isFallbackError) {
+        try {
+          const defaultDb = getFirestoreDB(true);
+          if (defaultDb) {
+            await defaultDb.collection('user_interactions').add(logData);
+            return;
+          }
+        } catch (innerErr) {
+          // Ignore inner error
+        }
       }
+      console.error("[AIService] Failed to log interaction:", err.message || err);
     }
   }
 
@@ -189,11 +208,31 @@ export class AIService {
       
       if (call.name === "getQueueStatus" && db) {
         const { userId: targetUid } = call.args as any;
-        const snapshot = await db.collection('queues')
-          .where('userId', '==', targetUid)
-          .where('status', '==', 'waiting')
-          .get();
-        toolResponse = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        try {
+          const snapshot = await db.collection('queues')
+            .where('userId', '==', targetUid)
+            .where('status', '==', 'waiting')
+            .get();
+          toolResponse = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (err: any) {
+          const errorMsg = (err.message || String(err)).toUpperCase();
+          if (errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('NOT_FOUND') || err.code === 5 || err.code === 7) {
+            try {
+              const defaultDb = getFirestoreDB(true);
+              if (defaultDb) {
+                const snapshot = await defaultDb.collection('queues')
+                  .where('userId', '==', targetUid)
+                  .where('status', '==', 'waiting')
+                  .get();
+                toolResponse = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              }
+            } catch (innerErr) {
+              toolResponse = [];
+            }
+          } else {
+            toolResponse = [];
+          }
+        }
       } else if (call.name === "getVenueCongestion") {
         const venueId = (call.args as any).venueId || 'stadium_01';
         const venue = await VenueService.getVenueData(venueId);

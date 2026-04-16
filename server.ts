@@ -193,12 +193,31 @@ export async function createServer() {
       let pastInteractions: any[] = [];
       const db = getFirestoreDB();
       if (userId && db) {
-        const snapshot = await db.collection('user_interactions')
-          .where('userId', '==', userId)
-          .orderBy('timestamp', 'desc')
-          .limit(5)
-          .get();
-        pastInteractions = snapshot.docs.map(doc => doc.data().message);
+        try {
+          const snapshot = await db.collection('user_interactions')
+            .where('userId', '==', userId)
+            .orderBy('timestamp', 'desc')
+            .limit(5)
+            .get();
+          pastInteractions = snapshot.docs.map(doc => doc.data().message);
+        } catch (err: any) {
+          const errorMsg = (err.message || String(err)).toUpperCase();
+          if (errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('NOT_FOUND') || err.code === 5 || err.code === 7) {
+            try {
+              const defaultDb = getFirestoreDB(true);
+              if (defaultDb) {
+                const snapshot = await defaultDb.collection('user_interactions')
+                  .where('userId', '==', userId)
+                  .orderBy('timestamp', 'desc')
+                  .limit(5)
+                  .get();
+                pastInteractions = snapshot.docs.map(doc => doc.data().message);
+              }
+            } catch (innerErr) {
+              // Ignore inner error
+            }
+          }
+        }
       }
 
       const enhancedContext = {
