@@ -4,7 +4,7 @@
 FanFlow AI is a production-ready solution designed to optimize the attendee experience at large-scale sporting venues. By integrating real-time crowd data, AI-driven concierge services, and virtual queuing, the platform reduces friction, wait times, and congestion.
 
 ## 2. Technical Architecture (Zero-Cost Stack)
-- **Frontend:** Flutter (Cross-platform Mobile/Web)
+- **Frontend:** React (TypeScript / Vite)
 - **Backend:** Node.js/TypeScript on Google Cloud Run (Serverless)
 - **Database:** Firebase Firestore (NoSQL, Real-time)
 - **Authentication:** Firebase Auth (OAuth 2.0 / Google Login)
@@ -12,9 +12,9 @@ FanFlow AI is a production-ready solution designed to optimize the attendee expe
 - **Mapping:** Google Maps Platform (Routes & Distance Matrix API)
 
 ## 3. System Components
-### A. Presentation Layer (Flutter)
-- **Clean Architecture:** Separation of UI (Presentation), Business Logic (Domain), and Data (Data).
-- **Accessibility:** WCAG 2.1 AA compliance, semantic widgets, and "Mobility-First" routing.
+### A. Presentation Layer (React)
+- **Modular Component Architecture:** High-performance React components with focused responsibilities.
+- **Accessibility:** WCAG 2.1 AA compliance, semantic HTML, and "Mobility-First" routing.
 - **Real-time UI:** Firestore snapshots for live queue and crowd updates.
 
 ### B. Domain Layer (Logic)
@@ -33,17 +33,11 @@ FanFlow AI is a production-ready solution designed to optimize the attendee expe
 ├── firebase-blueprint.json   # Firestore Schema Definition
 ├── firestore.rules           # Security Rules (Least Privilege)
 ├── package.json              # Dependencies & Scripts
-├── src/                      # Web Frontend (React for Preview)
+├── src/                      # Web Frontend (React)
 │   ├── components/           # UI Components
 │   ├── services/             # API & Firebase Services
 │   ├── domain/               # Business Logic & Types
 │   └── App.tsx               # Main Application
-├── flutter_app/              # Flutter Project (Production Mobile)
-│   ├── lib/
-│   │   ├── presentation/     # UI & Blocs/Providers
-│   │   ├── domain/           # Entities & Use Cases
-│   │   └── data/             # Repositories & Data Sources
-│   └── pubspec.yaml          # Flutter Dependencies
 └── tests/                    # Unit & Integration Tests
 ```
 

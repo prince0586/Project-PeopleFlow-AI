@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Activity, PieChart } from 'lucide-react';
+import { AnalyticsReport } from '../types';
 
 /**
  * AnalyticsDashboard Component
@@ -10,7 +11,7 @@ import { BarChart3, TrendingUp, Activity, PieChart } from 'lucide-react';
  * @component
  */
 export const AnalyticsDashboard = React.memo(() => {
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<AnalyticsReport | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [venueId, setVenueId] = useState<string>('stadium_01');

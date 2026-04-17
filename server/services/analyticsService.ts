@@ -1,6 +1,6 @@
 import admin from 'firebase-admin';
-import { getFirestoreDB } from '../db';
-import { AnalyticsEvent } from '../../src/types';
+import { executeWithFirestoreFallback } from '../db';
+import { AnalyticsEvent, AnalyticsReport } from '../../src/types';
 
 /**
  * AnalyticsService
@@ -20,45 +20,24 @@ export class AnalyticsService {
   public static async logEvent(event: AnalyticsEvent): Promise<void> {
     console.log(`[Analytics] Ingesting event: ${event.type} for venue ${event.venueId}`);
     
-    const db = getFirestoreDB();
-    if (!db) {
-      console.warn('[Analytics] Firestore DB not available for logging.');
-      return;
-    }
-
     try {
-      await db.collection('venue_analytics').add({
-        ...event,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        processedAt: new Date().toISOString(),
-        ingestionTier: 'Enterprise'
+      await executeWithFirestoreFallback(async (db) => {
+        await db.collection('venue_analytics').add({
+          ...event,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          processedAt: new Date().toISOString(),
+          ingestionTier: 'Enterprise'
+        });
       });
-    } catch (error: any) {
-      const errorMsg = (error.message || String(error)).toUpperCase();
-      const isFallbackError = errorMsg.includes('PERMISSION_DENIED') || 
-                             errorMsg.includes('NOT_FOUND') || 
-                             error.code === 5 || 
-                             error.code === 7;
+    } catch (error) {
+      const err = error as Error & { code?: number };
+      const isAccessError = (err.message || String(err)).toUpperCase().includes('NOT_FOUND') || 
+                           err.code === 5 || (err.message || '').includes('PERMISSION_DENIED');
       
-      if (isFallbackError) {
-        try {
-          const defaultDb = getFirestoreDB(true);
-          if (defaultDb) {
-            await defaultDb.collection('venue_analytics').add({
-              ...event,
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
-              processedAt: new Date().toISOString(),
-              ingestionTier: 'Enterprise'
-            });
-            return;
-          }
-        } catch (innerErr) {
-          // Ignore inner error
-        }
+      // Only log if it's NOT an expected access error that the sticky fallback handles
+      if (!isAccessError) {
+        console.error('[Analytics] Failed to log event:', err.message || err);
       }
-      
-      // Only log if it's not a fallback-able error or if fallback failed
-      console.error('[Analytics] Failed to log event:', error.message || error);
     }
   }
 
@@ -66,20 +45,21 @@ export class AnalyticsService {
    * Seeds the analytics store with initial data to ensure "Live" status on first load.
    */
   public static async seedAnalytics(): Promise<void> {
-    const db = getFirestoreDB();
-    if (!db) return;
-
     try {
-      const snapshot = await db.collection('venue_analytics').limit(1).get();
-      if (snapshot.empty) {
-        console.log('[Analytics] Seeding initial data...');
-        await this.logEvent({
-          type: 'SYSTEM_BOOT',
-          venueId: 'stadium_01',
-          payload: { version: '1.0.0', status: 'initialized' },
-          timestamp: new Date().toISOString()
-        });
-      }
+      await executeWithFirestoreFallback(async (db) => {
+        const snapshot = await db.collection('venue_analytics').limit(1).get();
+        if (snapshot.empty) {
+          console.log('[Analytics] Seeding initial data...');
+          await db.collection('venue_analytics').add({
+            type: 'SYSTEM_BOOT',
+            venueId: 'stadium_01',
+            payload: { version: '1.0.0', status: 'initialized' },
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            processedAt: new Date().toISOString(),
+            ingestionTier: 'Enterprise'
+          });
+        }
+      });
     } catch (error) {
       // Silent fail for seeding
     }
@@ -93,64 +73,36 @@ export class AnalyticsService {
    * @param eventType - Optional filter for specific event types (e.g., 'ROUTE_CALCULATION').
    * @returns A Promise resolving to a performance report object.
    */
-  public static async getVenueReport(venueId: string, eventType?: string): Promise<any> {
-    const db = getFirestoreDB();
-    
-    // Default fallback data
+  public static async getVenueReport(venueId: string, eventType?: string): Promise<AnalyticsReport> {
+    // Default fallback data (Base throughput for 'all' is 15420, filtered is 8240 for mock realism)
+    const isFiltered = eventType && eventType !== 'all';
     const fallbackData = {
       venueId,
       eventType: eventType || 'all',
       period: 'Last 24 Hours (Simulated)',
       peakCongestion: 0.85,
       avgWaitTime: 12.4,
-      totalThroughput: 15420,
+      totalThroughput: isFiltered ? 8240 : 15420,
       generatedAt: new Date().toISOString(),
       status: 'Simulated'
     };
 
-    if (!db) {
-      return fallbackData;
-    }
-
     try {
-      // Use a timeout to prevent hanging requests that cause "Failed to fetch"
-      const queryPromise = (async () => {
-        let currentDb = db;
-        let query = currentDb.collection('venue_analytics').where('venueId', '==', venueId);
+      const docs = await executeWithFirestoreFallback(async (db) => {
+        let query = db.collection('venue_analytics').where('venueId', '==', venueId);
         if (eventType && eventType !== 'all') {
           query = query.where('type', '==', eventType);
         }
 
-        try {
-          const snapshot = await query.limit(100).get();
-          return snapshot.docs.map(doc => doc.data());
-        } catch (err: any) {
-          const errorMsg = (err.message || String(err)).toUpperCase();
-          const isFallbackError = errorMsg.includes('PERMISSION_DENIED') || 
-                                 errorMsg.includes('NOT_FOUND') || 
-                                 err.code === 5 || 
-                                 err.code === 7;
-          
-          if (isFallbackError) {
-            const defaultDb = getFirestoreDB(true);
-            if (defaultDb) {
-              let fallbackQuery = defaultDb.collection('venue_analytics').where('venueId', '==', venueId);
-              if (eventType && eventType !== 'all') {
-                fallbackQuery = fallbackQuery.where('type', '==', eventType);
-              }
-              const fallbackSnapshot = await fallbackQuery.limit(100).get();
-              return fallbackSnapshot.docs.map(doc => doc.data());
-            }
-          }
-          throw err;
-        }
-      })();
+        // Use a 3s timeout for the query to ensure responsiveness
+        const snapshotPromise = query.limit(100).get();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Query Timeout')), 3000)
+        );
 
-      const timeoutPromise = new Promise<null>((_, reject) => 
-        setTimeout(() => reject(new Error('Query Timeout')), 3000)
-      );
-
-      const docs = await Promise.race([queryPromise, timeoutPromise]);
+        const snapshot = await Promise.race([snapshotPromise, timeoutPromise]) as admin.firestore.QuerySnapshot;
+        return snapshot.docs.map(doc => doc.data());
+      });
 
       if (!docs || docs.length === 0) {
         return { ...fallbackData, status: 'Live (No Data)' };
@@ -158,7 +110,7 @@ export class AnalyticsService {
 
       // Sort in memory if needed
       const sortedDocs = [...docs].sort((a, b) => 
-        new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime()
+        new Date(b.timestamp?._seconds * 1000 || 0).getTime() - new Date(a.timestamp?._seconds * 1000 || 0).getTime()
       );
 
       // Calculate real metrics
@@ -176,22 +128,23 @@ export class AnalyticsService {
         generatedAt: new Date().toISOString(),
         status: 'Live'
       };
-    } catch (error: any) {
-      const errorMsg = (error.message || String(error)).toUpperCase();
+    } catch (error) {
+      const err = error as Error & { code?: number };
+      const errorMsg = (err.message || String(err)).toUpperCase();
       const isAccessError = errorMsg.includes('PERMISSION_DENIED') || 
                            errorMsg.includes('NOT_FOUND') ||
-                           error.code === 5 ||
-                           error.code === 7;
+                           err.code === 5 ||
+                           err.code === 7;
       
       if (!isAccessError) {
-        console.error('[Analytics] Report generation failed:', error.message || error);
+        console.error('[Analytics] Report generation failed:', err.message || err);
       }
       
       return {
         ...fallbackData,
         warning: isAccessError
           ? 'Database instance unavailable or restricted. Using simulated data.' 
-          : `Real-time aggregation unavailable (${error.message || 'Unknown error'}). Using simulated data.`
+          : `Real-time aggregation unavailable (${err.message || 'Unknown error'}). Using simulated data.`
       };
     }
   }

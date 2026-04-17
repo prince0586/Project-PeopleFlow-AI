@@ -56,6 +56,25 @@ export interface ChatMessage {
 }
 
 /**
+ * Enhanced context for Chat API
+ */
+export interface ChatContext extends Record<string, string | number | boolean | string[] | undefined> {
+  venue?: string;
+  user?: string;
+  activeTokens?: number;
+  timestamp?: string;
+  pastInteractions?: string[];
+}
+
+/**
+ * Chat history item for Gemini integration
+ */
+export interface ChatHistoryItem {
+  role: 'user' | 'model';
+  content: string;
+}
+
+/**
  * An event logged to the analytics system.
  */
 export interface AnalyticsEvent {
@@ -64,4 +83,19 @@ export interface AnalyticsEvent {
   venueId: string;
   payload: any;
   timestamp: string;
+}
+
+/**
+ * A performance report generated from analytics data.
+ */
+export interface AnalyticsReport {
+  venueId: string;
+  eventType: string;
+  period: string;
+  peakCongestion: number;
+  avgWaitTime: number;
+  totalThroughput: number;
+  generatedAt: string;
+  status: string;
+  warning?: string;
 }

@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI, SchemaType, GenerativeModel, FunctionDeclaration } from "@google/generative-ai";
-import { getFirestoreDB } from '../db';
+import { executeWithFirestoreFallback } from '../db';
 import { VenueService } from './venueService';
+import { ChatContext, ChatHistoryItem } from '../../src/types';
 
 /**
  * AIService
@@ -71,9 +72,9 @@ export class AIService {
    */
   public static async processChat(
     message: string, 
-    context: Record<string, any>, 
+    context: ChatContext, 
     userId?: string,
-    history: any[] = []
+    history: ChatHistoryItem[] = []
   ): Promise<string> {
     if (!this.genAI) {
       throw new Error("[AIService] Service not initialized. Call init() first.");
@@ -117,9 +118,6 @@ export class AIService {
    * Logs a user interaction to Firestore for personalization.
    */
   private static async logInteraction(userId: string, message: string): Promise<void> {
-    const db = getFirestoreDB();
-    if (!db) return;
-
     const logData = {
       userId,
       message,
@@ -127,25 +125,10 @@ export class AIService {
     };
 
     try {
-      await db.collection('user_interactions').add(logData);
+      await executeWithFirestoreFallback(async (db) => {
+        await db.collection('user_interactions').add(logData);
+      });
     } catch (err: any) {
-      const errorMsg = (err.message || String(err)).toUpperCase();
-      const isFallbackError = errorMsg.includes('PERMISSION_DENIED') || 
-                             errorMsg.includes('NOT_FOUND') || 
-                             err.code === 5 || 
-                             err.code === 7;
-      
-      if (isFallbackError) {
-        try {
-          const defaultDb = getFirestoreDB(true);
-          if (defaultDb) {
-            await defaultDb.collection('user_interactions').add(logData);
-            return;
-          }
-        } catch (innerErr) {
-          // Ignore inner error
-        }
-      }
       console.error("[AIService] Failed to log interaction:", err.message || err);
     }
   }
@@ -157,7 +140,7 @@ export class AIService {
    * @param userId - Optional user ID for personalization.
    * @returns A formatted system instruction string.
    */
-  private static getSystemInstruction(context: Record<string, any>, userId?: string): string {
+  private static getSystemInstruction(context: ChatContext, userId?: string): string {
     const venueDetails = `
       Venue: Global Arena (stadium_01)
       Capacity: 55,000
@@ -196,45 +179,32 @@ export class AIService {
   private static async handleFunctionCalls(
     model: GenerativeModel,
     originalMessage: string,
-    initialResponse: any,
-    functionCalls: any[],
-    history: any[] = []
+    initialResponse: unknown,
+    functionCalls: any[], // FunctionCall is a complex type from library, keep for now or use casting
+    history: ChatHistoryItem[] = []
   ): Promise<string> {
     const toolResults = [];
-    const db = getFirestoreDB();
 
     for (const call of functionCalls) {
       let toolResponse;
       
-      if (call.name === "getQueueStatus" && db) {
-        const { userId: targetUid } = call.args as any;
+      if (call.name === "getQueueStatus") {
+        const args = call.args as { userId: string };
+        const { userId: targetUid } = args;
         try {
-          const snapshot = await db.collection('queues')
-            .where('userId', '==', targetUid)
-            .where('status', '==', 'waiting')
-            .get();
-          toolResponse = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        } catch (err: any) {
-          const errorMsg = (err.message || String(err)).toUpperCase();
-          if (errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('NOT_FOUND') || err.code === 5 || err.code === 7) {
-            try {
-              const defaultDb = getFirestoreDB(true);
-              if (defaultDb) {
-                const snapshot = await defaultDb.collection('queues')
-                  .where('userId', '==', targetUid)
-                  .where('status', '==', 'waiting')
-                  .get();
-                toolResponse = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              }
-            } catch (innerErr) {
-              toolResponse = [];
-            }
-          } else {
-            toolResponse = [];
-          }
+          toolResponse = await executeWithFirestoreFallback(async (db) => {
+            const snapshot = await db.collection('queues')
+              .where('userId', '==', targetUid)
+              .where('status', '==', 'waiting')
+              .get();
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          });
+        } catch (err: unknown) {
+          toolResponse = [];
         }
       } else if (call.name === "getVenueCongestion") {
-        const venueId = (call.args as any).venueId || 'stadium_01';
+        const args = (call.args as { venueId?: string }) || {};
+        const venueId = args.venueId || 'stadium_01';
         const venue = await VenueService.getVenueData(venueId);
         toolResponse = { 
           congestion: venue.congestionLevel, 

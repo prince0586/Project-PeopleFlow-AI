@@ -12,7 +12,7 @@ import compression from 'compression';
 import { VenueService } from './server/services/venueService';
 import { AnalyticsService } from './server/services/analyticsService';
 import { AIService } from './server/services/aiService';
-import { getFirestoreDB } from './server/db';
+import { getFirestoreDB, executeWithFirestoreFallback } from './server/db';
 
 dotenv.config();
 
@@ -28,9 +28,20 @@ const RouteSchema = z.object({
   venueId: z.string().optional()
 });
 
+const AnalyticsQuerySchema = z.object({
+  venueId: z.string().optional().default('stadium_01'),
+  type: z.string().optional()
+});
+
+const QueueQuerySchema = z.object({
+  serviceType: z.enum(['concession', 'restroom', 'entry', 'exit']).optional(),
+  queueLength: z.string().regex(/^\d+$/).optional().default('0'),
+  venueId: z.string().optional().default('stadium_01')
+});
+
 const ChatSchema = z.object({
   message: z.string().min(1).max(1000),
-  context: z.record(z.string(), z.any()).optional(),
+  context: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.undefined()])).optional(),
   userId: z.string().optional(),
   history: z.array(z.object({
     role: z.enum(['user', 'model']),
@@ -83,10 +94,15 @@ export async function createServer() {
 
   // Analytics Report (not rate limited for dashboard availability)
   app.get('/api/analytics/report', async (req, res) => {
-    const { venueId = 'stadium_01', type } = req.query;
+    const validation = AnalyticsQuerySchema.safeParse(req.query);
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Invalid query parameters', details: validation.error.format() });
+    }
+
+    const { venueId, type } = validation.data;
     console.log(`[Server] Analytics Report requested for venue: ${venueId}, type: ${type}`);
     try {
-      const report = await AnalyticsService.getVenueReport(venueId as string, type as string);
+      const report = await AnalyticsService.getVenueReport(venueId, type);
       res.json(report);
     } catch (error) {
       console.error('Analytics Report Error:', error);
@@ -144,21 +160,26 @@ export async function createServer() {
    * @desc Wait time estimation with analytics integration.
    */
   app.get('/api/queue/estimate', async (req, res) => {
-    const { serviceType, queueLength, venueId = 'stadium_01' } = req.query;
+    const validation = QueueQuerySchema.safeParse(req.query);
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Invalid query parameters', details: validation.error.format() });
+    }
+
+    const { serviceType, queueLength, venueId } = validation.data;
     
     const processingTimes: Record<string, number> = {
       concession: 2.5, restroom: 1.5, entry: 0.5, exit: 0.2
     };
 
     const avgTime = processingTimes[serviceType as string] || 1.0;
-    const length = parseInt(queueLength as string) || 0;
+    const length = parseInt(queueLength) || 0;
     const ewt = length * avgTime;
 
     try {
       await AnalyticsService.logEvent({
         type: 'QUEUE_ESTIMATE',
-        venueId: venueId as string,
-        payload: { serviceType, ewt },
+        venueId,
+        payload: { serviceType: serviceType || 'unknown', ewt },
         timestamp: new Date().toISOString()
       });
 
@@ -191,32 +212,18 @@ export async function createServer() {
     try {
       // Fetch past user interactions for personalization
       let pastInteractions: any[] = [];
-      const db = getFirestoreDB();
-      if (userId && db) {
+      if (userId) {
         try {
-          const snapshot = await db.collection('user_interactions')
-            .where('userId', '==', userId)
-            .orderBy('timestamp', 'desc')
-            .limit(5)
-            .get();
-          pastInteractions = snapshot.docs.map(doc => doc.data().message);
+          pastInteractions = await executeWithFirestoreFallback(async (db) => {
+            const snapshot = await db.collection('user_interactions')
+              .where('userId', '==', userId)
+              .orderBy('timestamp', 'desc')
+              .limit(5)
+              .get();
+            return snapshot.docs.map(doc => doc.data().message);
+          });
         } catch (err: any) {
-          const errorMsg = (err.message || String(err)).toUpperCase();
-          if (errorMsg.includes('PERMISSION_DENIED') || errorMsg.includes('NOT_FOUND') || err.code === 5 || err.code === 7) {
-            try {
-              const defaultDb = getFirestoreDB(true);
-              if (defaultDb) {
-                const snapshot = await defaultDb.collection('user_interactions')
-                  .where('userId', '==', userId)
-                  .orderBy('timestamp', 'desc')
-                  .limit(5)
-                  .get();
-                pastInteractions = snapshot.docs.map(doc => doc.data().message);
-              }
-            } catch (innerErr) {
-              // Ignore inner error
-            }
-          }
+          // Ignore interaction fetch errors to keep chat functional
         }
       }
 
@@ -247,7 +254,7 @@ export async function createServer() {
   }
 
   // Global Error Handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use((err: Error & { status?: number }, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error('[Global Error Handler]', err);
     res.status(err.status || 500).json({
       error: err.message || 'Internal Server Error',

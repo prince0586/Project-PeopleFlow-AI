@@ -4,48 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FanFlow AI - Enterprise Venue Management</title>
-    <script>
-      // Expert-level suppression of benign environment-specific errors
-      (function() {
-        const suppressedPatterns = [
-          '[vite] failed to connect to websocket',
-          'WebSocket closed without opened',
-          'the client is offline'
-        ];
-
-        const shouldSuppress = (msg) => {
-          if (!msg) return false;
-          const str = String(msg);
-          return suppressedPatterns.some(pattern => str.includes(pattern));
-        };
-
-        window.addEventListener('unhandledrejection', (event) => {
-          if (shouldSuppress(event.reason) || shouldSuppress(event.reason?.message)) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }, true);
-
-        window.addEventListener('error', (event) => {
-          if (shouldSuppress(event.message) || shouldSuppress(event.error)) {
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }, true);
-
-        const originalError = console.error;
-        console.error = (...args) => {
-          if (args.some(shouldSuppress)) return;
-          originalError.apply(console, args);
-        };
-
-        const originalWarn = console.warn;
-        console.warn = (...args) => {
-          if (args.some(shouldSuppress)) return;
-          originalWarn.apply(console, args);
-        };
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

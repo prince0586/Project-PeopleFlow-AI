@@ -1,5 +1,5 @@
 import NodeCache from 'node-cache';
-import { getFirestoreDB } from '../db';
+import { executeWithFirestoreFallback } from '../db';
 import { Gate, VenueData } from '../../src/types';
 
 /**
@@ -31,38 +31,29 @@ export class VenueService {
       return cachedData;
     }
 
-    const db = getFirestoreDB();
-    if (db) {
-      try {
+    try {
+      const data = await executeWithFirestoreFallback(async (db) => {
         const doc = await db.collection('venues').doc(venueId).get();
         if (doc.exists) {
-          const data = doc.data() as VenueData;
-          venueCache.set(venueId, data);
-          return data;
+          return doc.data() as VenueData;
         }
-      } catch (error: any) {
-        const errorMsg = (error.message || String(error)).toUpperCase();
-        const isFallbackError = errorMsg.includes('PERMISSION_DENIED') || 
-                               errorMsg.includes('NOT_FOUND') || 
-                               error.code === 5 || 
-                               error.code === 7;
-        
-        if (isFallbackError) {
-          try {
-            const defaultDb = getFirestoreDB(true);
-            if (defaultDb) {
-              const doc = await defaultDb.collection('venues').doc(venueId).get();
-              if (doc.exists) {
-                const data = doc.data() as VenueData;
-                venueCache.set(venueId, data);
-                return data;
-              }
-            }
-          } catch (innerErr) {
-            // Ignore inner error
-          }
-        }
-        console.error('[VenueService] Firestore Retrieval Error:', error.message || error);
+        return null;
+      });
+
+      if (data) {
+        venueCache.set(venueId, data);
+        return data;
+      }
+    } catch (error) {
+      const err = error as Error & { code?: number };
+      const errorMsg = (err.message || String(err)).toUpperCase();
+      const isAccessError = errorMsg.includes('PERMISSION_DENIED') || 
+                           errorMsg.includes('NOT_FOUND') ||
+                           err.code === 5 ||
+                           err.code === 7;
+      
+      if (!isAccessError) {
+        console.error('[VenueService] Firestore Retrieval Error:', err.message || err);
       }
     }
 
