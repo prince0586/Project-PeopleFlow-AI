@@ -1,5 +1,5 @@
 /**
- * Shared types for PeopleFlow AI.
+ * Shared types for EventFlow AI.
  * This module defines the core data model with strict TypeScript interfaces
  * and discriminated unions to ensure end-to-end type safety.
  */

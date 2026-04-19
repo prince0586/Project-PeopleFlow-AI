@@ -6,7 +6,7 @@ import { Location, Gate } from '../src/types';
  * Enterprise Routing Heuristic Test Suite
  * 
  * Verifies the mathematical accuracy and accessibility compliance of the
- * PeopleFlow AI weighted routing engine.
+ * EventFlow AI weighted routing engine.
  */
 describe('Routing Heuristic Integration', () => {
   const mockUserLocation: Location = { lat: 34.0522, lng: -118.2437 };

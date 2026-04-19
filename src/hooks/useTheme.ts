@@ -15,7 +15,7 @@ export function useTheme() {
 
   // Initialization
   useEffect(() => {
-    const savedTheme = localStorage.getItem('peopleflow-theme') as Theme | null;
+    const savedTheme = localStorage.getItem('eventflow-theme') as Theme | null;
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     const initialTheme = savedTheme || (systemDark ? 'dark' : 'light');
@@ -27,7 +27,7 @@ export function useTheme() {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark', 'high-contrast');
     root.classList.add(theme);
-    localStorage.setItem('peopleflow-theme', theme);
+    localStorage.setItem('eventflow-theme', theme);
   }, [theme]);
 
   const toggleTheme = useCallback(() => {

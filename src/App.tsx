@@ -13,7 +13,7 @@ import { RouteCalculationResult } from './types';
 import { useTheme } from './hooks/useTheme';
 
 /**
- * PeopleFlow AI - Enterprise Venue Management System
+ * EventFlow AI - Enterprise Venue Management System
  * 
  * The root application component that orchestrates the layout, authentication state,
  * and global theme settings. It features a responsive grid layout optimized for
@@ -55,7 +55,7 @@ export default function App() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-10 h-10 text-brand animate-spin" />
           <p className="text-sm font-bold text-text-sub uppercase tracking-widest animate-pulse">
-            Initializing PeopleFlow AI...
+            Initializing EventFlow AI...
           </p>
         </div>
       </div>
@@ -113,7 +113,7 @@ export default function App() {
               {theme === 'high-contrast' ? 'Standard Mode' : 'High Contrast'}
             </button>
             <div className="text-text-sub italic">
-              PeopleFlow AI v2.1.0 • 2026
+              EventFlow AI v2.1.0 • 2026
             </div>
           </div>
         </footer>

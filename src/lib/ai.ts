@@ -113,7 +113,7 @@ export class FrontendAIService {
    */
   private static getSystemInstruction(ctx: ChatContext): string {
     return `
-      You are the "PeopleFlow AI" Venue Concierge. 
+      You are the "EventFlow AI" Venue Concierge. 
       Your mission is to provide high-precision, safety-first assistance to venue attendees.
 
       ENVIRONMENTAL CONTEXT:

@@ -44,7 +44,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
             <h1 className="text-2xl font-bold text-text-main">System Interruption</h1>
             <p className="text-text-sub text-sm leading-relaxed">
-              An unexpected error occurred in the PeopleFlow AI engine. Our automated systems have been notified.
+              An unexpected error occurred in the EventFlow AI engine. Our automated systems have been notified.
             </p>
             <div className="p-4 bg-bg rounded-lg border border-border text-left">
               <p className="text-[10px] font-mono text-accent-red break-all">
@@ -59,7 +59,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               Restart Application
             </button>
             <p className="text-[10px] text-text-sub italic">
-              PeopleFlow AI v2.1.0 • Enterprise Resilience Layer
+              EventFlow AI v2.1.0 • Enterprise Resilience Layer
             </p>
           </div>
         </div>

@@ -220,7 +220,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   createServer().then(app => {
     const PORT = 3000;
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`[Server] PeopleFlow AI Backend running at http://0.0.0.0:${PORT}`);
+      console.log(`[Server] EventFlow AI Backend running at http://0.0.0.0:${PORT}`);
       console.log(`[Server] Health check: http://0.0.0.0:${PORT}/api/health`);
     });
   }).catch(err => {

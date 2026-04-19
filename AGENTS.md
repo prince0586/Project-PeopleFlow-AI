@@ -1,4 +1,4 @@
-# PeopleFlow AI - Agent Intelligence Directives
+# EventFlow AI - Agent Intelligence Directives
 
 ## 1. Quality Mandates
 - **Strict Typing**: Never use `any`. All data structures must derive from `src/types.ts`.

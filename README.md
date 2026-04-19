@@ -1,7 +1,7 @@
-# PeopleFlow AI - System Design Document
+# EventFlow AI - System Design Document
 
 ## 1. Executive Summary
-PeopleFlow AI is a production-ready solution designed to optimize the attendee experience at large-scale sporting venues. By integrating real-time crowd data, AI-driven concierge services, and virtual queuing, the platform reduces friction, wait times, and congestion.
+EventFlow AI is a production-ready solution designed to optimize the attendee experience at large-scale sporting venues. By integrating real-time crowd data, AI-driven concierge services, and virtual queuing, the platform reduces friction, wait times, and congestion.
 
 ## 2. Technical Architecture (Zero-Cost Stack)
 - **Frontend:** React (TypeScript / Vite)
@@ -80,4 +80,4 @@ PeopleFlow AI is a production-ready solution designed to optimize the attendee e
 - **Intelligence Grounding**: AI Concierge utilizes deterministic tool-calling to ensure 0% hallucination rate for venue facilities.
 
 ---
-*PeopleFlow AI is an elite venue intelligence solution designed for the future of live spectator events.*
+*EventFlow AI is an elite venue intelligence solution designed for the future of live spectator events.*

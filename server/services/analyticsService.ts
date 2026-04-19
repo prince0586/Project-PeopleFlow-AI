@@ -61,7 +61,7 @@ export class AnalyticsService {
             venueId: 'stadium_01',
             payload: { 
               version: '2.1.0', 
-              engine: 'PeopleFlow V2',
+              engine: 'EventFlow V2',
               environment: 'production'
             },
             timestamp: new Date().toISOString()
