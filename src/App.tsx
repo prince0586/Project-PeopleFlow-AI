@@ -9,6 +9,7 @@ import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { LiveMap } from './components/LiveMap';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
+import { RouteCalculationResult } from './types';
 
 /**
  * PeopleFlow AI - Enterprise Venue Management System
@@ -23,7 +24,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'high-contrast'>('light');
-  const [activeRoute, setActiveRoute] = useState<any>(null);
+  const [activeRoute, setActiveRoute] = useState<RouteCalculationResult | null>(null);
 
   /**
    * Effect hook to synchronize authentication state with Firebase.
@@ -43,7 +44,7 @@ export default function App() {
    * Effect hook to initialize and sync theme with system preferences and localStorage.
    */
   useEffect(() => {
-    const savedTheme = localStorage.getItem('peopleflow-theme') as any;
+    const savedTheme = localStorage.getItem('peopleflow-theme') as 'light' | 'dark' | 'high-contrast' | null;
     const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
     const initialTheme = savedTheme || (systemDark ? 'dark' : 'light');

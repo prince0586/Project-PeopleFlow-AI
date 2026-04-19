@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Map as MapIcon, Layers, Maximize2, Navigation, AlertCircle } from 'lucide-react';
 import { onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { VenueData, Gate } from '../types';
+import { VenueData, Gate, RouteCalculationResult } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { User } from 'firebase/auth';
 
 interface LiveMapProps {
-  activeRoute?: any;
+  activeRoute?: RouteCalculationResult;
   user?: User | null;
 }
 
@@ -115,7 +115,7 @@ export const LiveMap = React.memo(({ activeRoute, user }: LiveMapProps) => {
                 const y = Math.sin(angle) * 96;
                 
                 const isRecommended = activeRoute?.recommendedGate?.id === gate.id;
-                const isAlternative = activeRoute?.alternatives?.some((alt: any) => alt.id === gate.id);
+                const isAlternative = activeRoute?.alternatives?.some((alt: Gate) => alt.id === gate.id);
 
                 return (
                   <motion.div 

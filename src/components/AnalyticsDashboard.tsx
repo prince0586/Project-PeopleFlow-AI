@@ -51,8 +51,8 @@ export const AnalyticsDashboard = React.memo(() => {
           setReport(data);
           retryCount = 0; // Reset retry count on success
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         
         const message = err instanceof Error ? err.message : 'Failed to fetch analytics';
         

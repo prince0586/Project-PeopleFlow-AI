@@ -48,6 +48,10 @@ export const getFirestoreDB = (useDefault: boolean = false): Firestore | null =>
   return firestoreDatabaseId ? getFirestore(app, firestoreDatabaseId) : getFirestore(app);
 };
 
+interface FirestoreError extends Error {
+  code?: number;
+}
+
 /**
  * Executes a Firestore operation with an automatic fallback to the default database
  * if the primary instance returns PERMISSION_DENIED or NOT_FOUND errors.
@@ -64,16 +68,17 @@ export const executeWithFirestoreFallback = async <T>(
 
   try {
     return await operation(db);
-  } catch (error: any) {
-    const errorMsg = (error.message || String(error)).toUpperCase();
+  } catch (error: unknown) {
+    const err = error as FirestoreError;
+    const errorMsg = (err.message || String(err)).toUpperCase();
     const isAccessError = errorMsg.includes('PERMISSION_DENIED') || 
                          errorMsg.includes('NOT_FOUND') ||
-                         error.code === 5 || // NOT_FOUND
-                         error.code === 7;   // PERMISSION_DENIED
+                         err.code === 5 || // NOT_FOUND
+                         err.code === 7;   // PERMISSION_DENIED
     
     if (isAccessError && !isPrimaryUnhealthy) {
       const dbIdLabel = firestoreDatabaseId || '(default)';
-      console.log(`[Firebase] Primary DB Instance [${dbIdLabel}] returned ${error.code || 'ACCESS_ERROR'}. Switching to fallback instance.`);
+      console.log(`[Firebase] Primary DB Instance [${dbIdLabel}] returned ${err.code || 'ACCESS_ERROR'}. Switching to fallback instance.`);
       isPrimaryUnhealthy = true;
       const defaultDb = getFirestoreDB(true);
       if (defaultDb) {

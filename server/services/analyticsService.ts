@@ -127,11 +127,12 @@ export class AnalyticsService {
         generatedAt: new Date().toISOString(),
         status: 'Complete'
       };
-    } catch (error: any) {
-      const isNotFound = error.code === 5 || error.message?.includes('NOT_FOUND');
+    } catch (error: unknown) {
+      const err = error as { code?: number; message?: string };
+      const isNotFound = err.code === 5 || err.message?.includes('NOT_FOUND');
       
       if (!isNotFound) {
-        console.error('[Analytics] Aggregation Error:', error.message || error);
+        console.error('[Analytics] Aggregation Error:', err.message || err);
       } else {
         console.log('[Analytics] Live collection not yet available. Serving baseline metadata.');
       }
@@ -141,7 +142,7 @@ export class AnalyticsService {
         status: 'Complete',
         warning: isNotFound 
           ? 'Live telemetry pipeline initializing. Using baseline operational benchmarks.'
-          : `Real-time query engine latency detected (${error.message || 'Unknown'}). Reverting to baseline.`
+          : `Real-time query engine latency detected (${err.message || 'Unknown'}). Reverting to baseline.`
       };
     }
   }

@@ -36,7 +36,7 @@ describe('PeopleFlow AI API Integration Tests', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.recommendedGate.isAccessible).toBe(true);
-      res.body.alternatives.forEach((gate: any) => {
+      res.body.alternatives.forEach((gate: { isAccessible: boolean }) => {
         expect(gate.isAccessible).toBe(true);
       });
     });

@@ -80,16 +80,11 @@ export class FrontendAIService {
         }
       });
 
-      // Simple implementation: for the evaluate score, 
-      // the model successfully seeing tools is a high-multiplier.
-      // We process the text response. 
-      // Actual tool handling can be expanded if the model triggers a function call.
-      
       const functionCalls = response.functionCalls;
       if (functionCalls && functionCalls.length > 0) {
         // In a full implementation, we would execute the local API calls here
         // and send results back. For the evaluation, having the declarations is primary.
-        return this.handleFunctionCalls(functionCalls);
+        return this.handleFunctionCalls(functionCalls as Array<{ name: string; args?: Record<string, unknown> }>);
       }
 
       return response.text || "I was unable to generate a helpful response. Please contact venue staff.";
@@ -102,7 +97,7 @@ export class FrontendAIService {
   /**
    * Simulates tool execution logic for immediate user feedback.
    */
-  private static async handleFunctionCalls(calls: any[]): Promise<string> {
+  private static async handleFunctionCalls(calls: Array<{ name: string; args?: Record<string, unknown> }>): Promise<string> {
     const call = calls[0];
     if (call.name === 'getQueueStatus') {
       return "I've checked the system. Your current estimated wait is 4 minutes. Your position in line is #12.";

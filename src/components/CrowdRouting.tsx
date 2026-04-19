@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
 import { Navigation, Clock, Accessibility, MapPin } from 'lucide-react';
-import { Gate } from '../types';
+import { Gate, RouteCalculationResult } from '../types';
 
 interface CrowdRoutingProps {
-  onRouteCalculated?: (route: any) => void;
+  onRouteCalculated?: (route: RouteCalculationResult) => void;
 }
 
 /**
