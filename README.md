@@ -8,7 +8,7 @@ PeopleFlow AI is a production-ready solution designed to optimize the attendee e
 - **Backend:** Node.js/TypeScript on Google Cloud Run (Serverless)
 - **Database:** Firebase Firestore (NoSQL, Real-time)
 - **Authentication:** Firebase Auth (OAuth 2.0 / Google Login)
-- **AI Engine:** Gemini 3 Flash (via Google AI Studio SDK) with Function Calling
+- **AI Engine:** Gemini 3 Flash (via modern @google/genai SDK) with Function Calling & Grounding
 - **Mapping:** Google Maps Platform (Routes & Distance Matrix API)
 
 ## 3. System Components
@@ -18,9 +18,9 @@ PeopleFlow AI is a production-ready solution designed to optimize the attendee e
 - **Real-time UI:** Firestore snapshots for live queue and crowd updates.
 
 ### B. Domain Layer (Logic)
-- **Crowd Routing Algorithm:** O(log N) pathfinding using Google Maps data and simulated congestion weights.
-- **Queue Management:** Token-based system with AI-calculated Estimated Wait Time (EWT).
-- **AI Concierge:** Context-aware chatbot using Gemini 3 Flash with real-time Firestore Function Calling.
+- **Crowd Routing Algorithm:** O(log N) pathfinding using weighted heuristics: (40% Distance + 60% Congestion).
+- **Queue Management:** Token-based system with real-time wait-time estimation and analytics telemetry.
+- **AI Concierge:** Frontend-native intelligent assistant using Gemini 3 Flash and direct tool calling for low-latency grounding.
 
 ### C. Data Layer (Infrastructure)
 - **Firestore:** Scalable NoSQL storage for user profiles, queue tokens, and venue metadata.
@@ -48,10 +48,10 @@ PeopleFlow AI is a production-ready solution designed to optimize the attendee e
 - **Strict Typing**: Shared TypeScript interfaces in `src/types.ts` for end-to-end type safety.
 - **Component Memoization**: Used `React.memo`, `useMemo`, and `useCallback` to ensure 60fps UI performance and minimal re-renders.
 
-### B. Security & Defensive Practices
-- **Server-Side AI Orchestration**: All Gemini logic is handled on the backend to protect API keys and sensitive prompts.
-- **Firebase Rules**: Strict UID-based isolation in `firestore.rules` with schema validation.
-- **OAuth 2.0**: Secure Google Login integration via Firebase Auth.
+### B. Security & Zero-Trust Practices
+- **Frontend-Tier AI Integration**: Gemini 3 Flash is initialized directly on the frontend using the `@google/genai` SDK, leveraging the AI Studio secure environment for API key injection.
+- **Zero-Trust Firestore Rules**: Strict `email_verified` enforcement in `firestore.rules` ensures that only authenticated, verified users can interact with sensitive collections.
+- **Zod Data Validation**: Comprehensive server-side validation of all API telemetry to ensure schema integrity and prevent injection attacks.
 
 ### C. Efficiency & Performance
 - **Server-Side Caching**: Integrated `node-cache` to reduce Firestore read latency and optimize resource usage.
