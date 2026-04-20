@@ -44,9 +44,10 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
     }, (error) => {
       try {
         handleFirestoreError(error, 'list', 'queues');
-      } catch (mappedError: any) {
+      } catch (mappedError: unknown) {
         setErrorMessage('Access Control Restriction');
-        console.error('[VirtualQueue] Authorization Failure:', mappedError.message);
+        const message = mappedError instanceof Error ? mappedError.message : 'Unknown';
+        console.error('[VirtualQueue] Authorization Failure:', message);
       }
     });
 
@@ -80,12 +81,13 @@ export const VirtualQueue = React.memo(({ user }: VirtualQueueProps) => {
         joinedAt: serverTimestamp(),
         estimatedWaitTime
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       try {
         handleFirestoreError(err, 'create', 'queues');
-      } catch (mappedError: any) {
+      } catch (mappedError: unknown) {
         setErrorMessage('Permission Denied');
-        console.error('[VirtualQueue] Create Invariant Failure:', mappedError.message);
+        const message = mappedError instanceof Error ? mappedError.message : 'Unknown';
+        console.error('[VirtualQueue] Create Invariant Failure:', message);
       }
     } finally {
       setLoading(false);

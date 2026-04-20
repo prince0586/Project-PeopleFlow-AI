@@ -27,7 +27,7 @@ service cloud.firestore {
     function existing() { return resource.data; }
 
     // ===============================================================
-    // 2. Validation Blueprints (The Anti-Update-Gap)
+    // 2. Validation Blueprints (Strict Schema Enforcement)
     // ===============================================================
     
     function isValidUser(data) {
@@ -35,7 +35,9 @@ service cloud.firestore {
              data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
-             (!('mobilityFirst' in data) || data.mobilityFirst is bool);
+             (!('mobilityFirst' in data) || data.mobilityFirst is bool) &&
+             // Prevent "Shadow Fields" via strict size check
+             data.keys().size() <= 6;
     }
 
     function isValidQueueToken(data) {
@@ -44,7 +46,8 @@ service cloud.firestore {
              data.venueId is string && isValidId(data.venueId) &&
              data.serviceType in ['concession', 'restroom', 'entry', 'exit'] &&
              data.status in ['waiting', 'called', 'completed', 'cancelled'] &&
-             data.joinedAt is timestamp;
+             data.joinedAt is timestamp &&
+             data.keys().size() <= 8;
     }
 
     function isValidChatMessage(data) {
@@ -52,7 +55,8 @@ service cloud.firestore {
              data.userId == request.auth.uid &&
              data.role in ['user', 'model'] &&
              data.content is string && data.content.size() <= 2000 &&
-             data.timestamp is timestamp;
+             data.timestamp is timestamp &&
+             data.keys().size() == 4;
     }
 
     function isValidAnalyticsLog(data) {
@@ -60,7 +64,8 @@ service cloud.firestore {
              data.type is string && data.type.size() <= 64 &&
              data.venueId is string && isValidId(data.venueId) &&
              data.payload is map &&
-             data.timestamp is timestamp;
+             data.timestamp is timestamp &&
+             data.keys().size() <= 7;
     }
 
     // ===============================================================
@@ -69,14 +74,15 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin(); // Users cannot list other users
+      allow list: if isAdmin(); 
       
       allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
       
       allow update: if isOwner(userId) && isValidId(userId) && (
-        // Action: Standard Profile Update
+        // Action: Profile Refinement
         incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'mobilityFirst', 'updatedAt']) &&
         incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
         isValidUser(incoming())
       ) || isAdmin();
     }
@@ -88,15 +94,18 @@ service cloud.firestore {
       allow create: if isVerified() && isValidId(tokenId) && 
                       isValidQueueToken(incoming()) &&
                       incoming().status == 'waiting' &&
+                      incoming().joinedAt == request.time &&
                       exists(/databases/$(database)/documents/venues/$(incoming().venueId));
 
       allow update: if isVerified() && isValidId(tokenId) && (
         (
-          // Action: User Cancellation
+          // Action: User-Initiated Lifecycle Change
           resource.data.userId == request.auth.uid &&
           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
           incoming().status == 'cancelled' &&
-          incoming().updatedAt == request.time
+          existing().status == 'waiting' &&
+          incoming().updatedAt == request.time &&
+          isValidQueueToken(incoming())
         ) || isAdmin()
       );
       

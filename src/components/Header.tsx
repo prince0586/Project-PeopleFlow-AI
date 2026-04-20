@@ -28,7 +28,7 @@ export const Header = React.memo(({ user, onToggleTheme, currentTheme }: HeaderP
     <div className="flex items-center gap-4">
       <button 
         onClick={onToggleTheme}
-        className="p-2 hover:bg-bg rounded-full transition-colors text-text-sub"
+        className="p-2 hover:bg-bg rounded-full transition-colors text-text-sub focus:outline-none focus:ring-2 focus:ring-brand"
         aria-label={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
       >
         {currentTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -44,7 +44,7 @@ export const Header = React.memo(({ user, onToggleTheme, currentTheme }: HeaderP
           />
           <button 
             onClick={signOut} 
-            className="p-2 hover:bg-bg rounded-full transition-colors"
+            className="p-2 hover:bg-bg rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand"
             aria-label="Sign Out"
           >
             <LogOut size={18} className="text-text-sub" />

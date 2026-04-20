@@ -44,10 +44,10 @@ export function useAnalytics(venueId: string, eventType: string) {
           setReport(data);
           retryCount = 0;
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         
-        const message = err.message || 'Ingestion Failure';
+        const message = err instanceof Error ? err.message : 'Ingestion Failure';
         if (isMounted) {
           setError(message);
           if (retryCount < MAX_RETRIES) {

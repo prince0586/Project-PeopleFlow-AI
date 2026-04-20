@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node dist/server.cjs",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --outfile=dist/server.cjs --format=cjs --external:vite --external:express --external:cors --external:dotenv --external:@google/genai --external:firebase-admin --external:fs --external:path --external:url --external:express-rate-limit --external:zod --external:node-cache",
+    "start": "tsx server.ts",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "tsx": "^4.21.0",
     "@google/genai": "^1.50.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",

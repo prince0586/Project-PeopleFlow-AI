@@ -59,9 +59,10 @@ export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
     }, (err) => {
       try {
         handleFirestoreError(err, 'list', `chats/${chatId}/messages`);
-      } catch (mappedError: any) {
+      } catch (mappedError: unknown) {
         setError('Security restriction on chat history');
-        console.error('[AIConcierge] Authorization Failure:', mappedError.message);
+        const message = mappedError instanceof Error ? mappedError.message : 'Unknown';
+        console.error('[AIConcierge] Authorization Failure:', message);
       }
     });
 
@@ -109,12 +110,13 @@ export const AIConcierge = React.memo(({ user }: AIConciergeProps) => {
         timestamp: serverTimestamp()
       });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       try {
         handleFirestoreError(err, 'create', `chats/${chatId}/messages`);
-      } catch (mappedError: any) {
-        setError(`Telemetry Error: ${mappedError.message.substring(0, 30)}...`);
-        console.error('[AIConcierge] Pipeline Failure:', mappedError.message);
+      } catch (mappedError: unknown) {
+        const message = mappedError instanceof Error ? mappedError.message : 'Unknown Failure';
+        setError(`Telemetry Error: ${message.substring(0, 30)}...`);
+        console.error('[AIConcierge] Pipeline Failure:', message);
       }
       
       setMessages(prev => [...prev, { 

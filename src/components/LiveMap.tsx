@@ -44,13 +44,14 @@ export const LiveMap = React.memo(({ activeRoute, user }: LiveMapProps) => {
     }, (err) => {
       try {
         handleFirestoreError(err, 'get', `venues/${venueId}`);
-      } catch (mappedError: any) {
+      } catch (mappedError: unknown) {
         if (!user) {
           // Graceful degradation for unauthenticated state
           setError('Sign in for live telemetry');
         } else {
           setError('Access restricted');
-          console.error('[LiveMap] Metadata Access Failure:', mappedError.message);
+          const message = mappedError instanceof Error ? mappedError.message : 'Unknown';
+          console.error('[LiveMap] Metadata Access Failure:', message);
         }
       }
     });

@@ -10,7 +10,6 @@
  * @security Implements defensive headers, rate limiting, and input validation.
  */
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -92,12 +91,12 @@ export async function createServer(): Promise<express.Application> {
   app.post('/api/route', RouteController.calculateRoute);
   app.get('/api/queue/estimate', QueueController.getEstimate);
 
-  /**
-   * Vite / Static Assets / SPA Fallback Logic
-   */
+  // Vite / Static Assets / SPA Fallback Logic
   if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
     // Isolated for test environments
   } else if (process.env.NODE_ENV !== 'production') {
+    // Dynamic import to prevent require() of ESM-only vite in production CJS bundles
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({ 
       server: { middlewareMode: true }, 
       appType: 'spa' 
@@ -114,7 +113,7 @@ export async function createServer(): Promise<express.Application> {
    * Global Exception Interceptor
    * Centralizes error propagation and ensures uniform JSON error responses.
    */
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use((err: Error & { status?: number }, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error('[Global Error Handler]', err);
     res.status(err.status || 500).json({
       error: err.message || 'Internal Architectural Failure',
